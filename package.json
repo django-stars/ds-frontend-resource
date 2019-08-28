@@ -1,6 +1,6 @@
 {
   "name": "djangostars",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "redux HOC for sending HTTP requests",
   "scripts": {
     "build": "babel src -d . --ignore **/__tests__",
@@ -18,7 +18,7 @@
    "files": [
     "LICENSE",
     "README.md",
-    "core/",
+    "resources.js",
     "package.json"
   ],
   "keywords": [
