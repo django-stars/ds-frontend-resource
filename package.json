@@ -1,10 +1,10 @@
 {
-  "name": "redux-rest",
-  "version": "1.0.0",
+  "name": "djangostars",
+  "version": "1.0.2",
   "description": "redux HOC for sending HTTP requests",
   "scripts": {
-    "build": "babel src -d core --ignore **/__tests__",
-    "clean": "rimraf lib",
+    "build": "babel src -d . --ignore **/__tests__",
+    "clean": "rimraf resources.js",
     "lint": "eslint src/ --ext .jsx,.js",
     "prepublishOnly": "yarn clean && yarn build"
   },
