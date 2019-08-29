@@ -408,7 +408,7 @@ function epic(action$, store, _ref3) {
   });
 }
 
-var PERSIST_WHITE_LIST = JSON.parse(process.env.PERSIST_WHITE_LIST);
+var PERSIST_WHITE_LIST = JSON.parse((0, _get["default"])(process, 'env.PERSIST_WHITE_LIST') ? process.env.PERSIST_WHITE_LIST : require('react-native-config').PERSIST_WHITE_LIST);
 
 function combineReducers(reducers) {
   var initialState = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
