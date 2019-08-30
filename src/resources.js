@@ -252,7 +252,6 @@ function getFormRequestType(form = {}, data) {
 export function epic(action$, store, { API, navigate }) { // FIXME API
   return action$.ofType(REQUEST)
     .mergeMap(({ meta, payload }) => {
-      console.log({ navigate })
       let {
         type,
         endpoint,
@@ -299,6 +298,8 @@ const PERSIST_WHITE_LIST = JSON.parse(get(process, 'env.PERSIST_WHITE_LIST') ? p
 export function combineReducers(reducers, initialState = {}) {
   return (state = initialState, action) => {
     switch (action.type) {
+      case PERSIST:
+        return { ...state, ...action.payload }
       case CLEAR_ALL:
         return pick(state, ['router', ...PERSIST_WHITE_LIST])
       default:
@@ -345,13 +346,11 @@ export function makeCustomEpic(actionType, customFetch) {
               !forceUpdates && setLoading(false, meta),
               resolve(response),
             ))
-            .catch(err => {
-              console.log({ err }); return concat(of(
-                !forceUpdates && setErrors(err.errors || err, meta),
-                !forceUpdates && setLoading(false, meta),
-                reject(err.errors || err, meta),
-              )).filter(Boolean)
-            }),
+            .catch(err => concat(of(
+              !forceUpdates && setErrors(err.errors || err, meta),
+              !forceUpdates && setLoading(false, meta),
+              reject(err.errors || err, meta),
+            )).filter(Boolean)),
         ).filter(Boolean)
       })
   }
