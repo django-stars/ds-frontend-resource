@@ -13,6 +13,7 @@ exports.setLoading = setLoading;
 exports["default"] = connectResouces;
 exports.resourcesReducer = resourcesReducer;
 exports.epic = epic;
+exports.setPersistWhiteList = setPersistWhiteList;
 exports.combineReducers = combineReducers;
 exports.makeCustomEpic = makeCustomEpic;
 exports.CLEAR_ALL = exports.PERSIST = exports.SET_DATA = exports.REQUEST = void 0;
@@ -405,7 +406,11 @@ function epic(action$, store, _ref3) {
   });
 }
 
-var PERSIST_WHITE_LIST = JSON.parse((0, _get["default"])(process, 'env.PERSIST_WHITE_LIST') ? process.env.PERSIST_WHITE_LIST : require('react-native-config')["default"].PERSIST_WHITE_LIST);
+var PERSIST_WHITE_LIST = [];
+
+function setPersistWhiteList(whitelist) {
+  PERSIST_WHITE_LIST = whitelist;
+}
 
 function combineReducers(reducers) {
   var initialState = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
