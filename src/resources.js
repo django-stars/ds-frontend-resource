@@ -293,7 +293,10 @@ export function epic(action$, store, { API, navigate }) { // FIXME API
     })
 }
 
-const PERSIST_WHITE_LIST = JSON.parse(get(process, 'env.PERSIST_WHITE_LIST') ? process.env.PERSIST_WHITE_LIST : require('react-native-config').default.PERSIST_WHITE_LIST)
+var PERSIST_WHITE_LIST = []
+export function setPersistWhiteList(whitelist) {
+  PERSIST_WHITE_LIST = whitelist
+}
 
 export function combineReducers(reducers, initialState = {}) {
   return (state = initialState, action) => {
