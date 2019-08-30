@@ -1,5 +1,5 @@
 {
-  "name": "ds-fe-modules",
+  "name": "djangostars",
   "version": "1.0.1",
   "description": "redux HOC for sending HTTP requests",
   "scripts": {
@@ -27,15 +27,11 @@
     "REST",
     "HTTP"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/alexgul4enko/resources.git"
-  },
-  "author": {
-    "name": "Aleksandr Gulchenko",
-    "email": "aleksandr.gulchenko@gmail.com"
-  },
-  "bugs": "https://github.com/alexgul4enko/resources/issues",
+  "author": "DjangoStars <info@djangostars.com> (https://github.com/django-stars/)",
+  "contributors": [
+    "Alexander Gulchenko <aleksandr.gulchenko@gmail.com>"
+  ],
+  "bugs": "https://github.com/django-stars/frontend-skeleton-contrib/issues",
   "license": "MIT",
   "devDependencies": {
     "@babel/cli": "^7.5.0",
