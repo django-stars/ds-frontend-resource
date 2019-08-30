@@ -1,10 +1,6 @@
-
-### DRAFT --  DRAFT --  DRAFT --  DRAFT --  DRAFT
-
 ## The goal
 
-Когда мы работаем с REST-ресурсами, в 90% случаев, все что нам нужно это получить данные и отрендерить или забиндать в форму и сохранить после изменения.
-Эта, довольно нетривиальная задача приводит к большому количеству однотипного кода. Что-то вроде:
+working with REST-api and redux, using common practice, we always create almost same actions and reducers to send HTTP request to different endpoints. This will lead to problem that our projects has lot's of same code. For example
 
 ```
 // action types
@@ -43,11 +39,12 @@ function createUser(data) {
 }
 
 // reducers
-// TODO
 function users(state = {}, action) {
   switch(action.type) {
     case FETCH_USERS_LIST:
       return {...state, isLoading: true}
+    case SAVE_USER:
+      return {...state, ...action.payload, isLoading: false}
   }
 }
 
@@ -55,9 +52,8 @@ function users(state = {}, action) {
 // TODO
 ...
 ```
-
-И этот пример не содержит обработку ошибок, фильтрацию, педжинцию, кеширование, JWT, options  и т.п.
-При этом подобный код повторяется снова и снова в каждом store файле и по сути отличается лишь наименованием функций и констант:
+this example does not containts error handling, caching data, authhorization, options, filter ...
+And basically we always copy paste this code from file to file and rename functions and constans 
 
 ```
 fetchUsers
@@ -68,10 +64,7 @@ fetchOrders
 etc
 ```
 
-Задача данного пакета ускорить написание этой рутины, оставив время "на подумать"
-
-В данном пакете подразумевается что каждый API endpoint представляет собой REST ресурс.
-Для начала разберемся с самими ресурсами. Здесь они разделяются на два типа:
+this package will  help u stop copypasting and start thinking about more interesting staff in your
 
 1. Полноценный CRUD:
 ```
@@ -214,4 +207,28 @@ class App extends Component {
   },
   'users' //u can use even just a string in case your enpoint == namespace and all other configs are default
  ])(App)
+```
+
+#### makeCustomEpic
+In case u need more complex logic rather then sending 1 HTTP request, but u still want to have all abilities that brings `resources`
+
+```
+const {connect, epic} = makeCustomEpic(actionType, customFetch)
+```
+# params
+#### `actionType : String` [required]
+Action name for custom async function
+#### `customFetch : Function` [required]
+Async Function that should return Promise. this function will take next arguments:
+- `API`  object to send HTTP request
+- `payload`  action payload
+- `meta` action meta
+
+## Example: 
+```
+function myCustomFetch(API, payload, meta) {
+  return API(meta.endpoint).request('GET')
+}
+
+const { connect, epic } = makeCustomEpic('TEST_API', myCustomFetch)
 ```
