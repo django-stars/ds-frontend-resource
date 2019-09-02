@@ -7,7 +7,6 @@ exports.clearAllData = clearAllData;
 exports.persistAction = persistAction;
 exports.request = request;
 exports.setData = setData;
-exports.setResourceData = setResourceData;
 exports.setFilters = setFilters;
 exports.setErrors = setErrors;
 exports.setLoading = setLoading;

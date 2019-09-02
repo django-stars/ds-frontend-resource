@@ -61,7 +61,7 @@ export function setData(payload, meta) {
   }
 }
 
-export function setResourceData(payload, meta) {
+function setResourceData(payload, meta) {
   return {
     type: SET_RESOURCE_DATA,
     meta,
