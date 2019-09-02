@@ -7,6 +7,7 @@ exports.clearAllData = clearAllData;
 exports.persistAction = persistAction;
 exports.request = request;
 exports.setData = setData;
+exports.setResourceData = setResourceData;
 exports.setFilters = setFilters;
 exports.setErrors = setErrors;
 exports.setLoading = setLoading;
@@ -79,6 +80,7 @@ exports.SET_DATA = SET_DATA;
 var SET_ERRORS = '@resource/set-errors';
 var SET_LOADING = '@resource/set-loading';
 var SET_FILTERS = '@resource/set-filters';
+var SET_RESOURCE_DATA = '@resource/set-resourceData';
 var CLEAR_RESOURCES = '@resource/clear';
 var PERSIST = '@@Persist@@';
 exports.PERSIST = PERSIST;
@@ -112,6 +114,14 @@ function request(payload, meta) {
 function setData(payload, meta) {
   return {
     type: SET_DATA,
+    meta: meta,
+    payload: payload
+  };
+}
+
+function setResourceData(payload, meta) {
+  return {
+    type: SET_RESOURCE_DATA,
     meta: meta,
     payload: payload
   };
@@ -281,6 +291,14 @@ function connectResouces(resource) {
   }), (0, _reactRedux.connect)(mapStateToProps(resource)));
 }
 
+function makeData(dataFunction, state, payload) {
+  if (typeof dataFunction === 'function') {
+    return dataFunction((0, _get["default"])(state, 'data'), payload);
+  }
+
+  return concatDataFunctions[dataFunction]((0, _get["default"])(state, 'data'), payload);
+}
+
 function resourcesReducer() {
   var _SET_ERRORS$SET_FILTE;
 
@@ -294,6 +312,20 @@ function resourcesReducer() {
       meta = _ref$meta === void 0 ? {} : _ref$meta;
 
   switch (type) {
+    case SET_RESOURCE_DATA:
+      var data = payload.data,
+          errors = payload.errors,
+          isLoading = payload.isLoading,
+          filters = payload.filters,
+          options = payload.options;
+      return _objectSpread({}, state, {
+        errors: errors || state.errors,
+        isLoading: isLoading === undefined ? state.isLoading : isLoading,
+        filters: filters || state.filters,
+        options: options || state.options,
+        data: data ? makeData((0, _get["default"])(meta, 'dataFunction', 'object'), state, payload) : state.data
+      });
+
     case SET_ERRORS:
     case SET_FILTERS:
     case SET_LOADING:
@@ -307,10 +339,8 @@ function resourcesReducer() {
         });
       }
 
-      var _meta$dataFunction = meta.dataFunction,
-          dataFunction = _meta$dataFunction === void 0 ? 'object' : _meta$dataFunction;
       return _objectSpread({}, state, {
-        data: typeof dataFunction === 'function' ? dataFunction((0, _get["default"])(state, 'data'), payload) : concatDataFunctions[dataFunction]((0, _get["default"])(state, 'data'), payload)
+        data: makeData((0, _get["default"])(meta, 'dataFunction', 'object'), state, payload)
       });
 
     default:
@@ -379,7 +409,6 @@ function epic(action$, store, _ref3) {
         namespace = meta.namespace,
         _meta$queries = meta.queries,
         queries = _meta$queries === void 0 ? [] : _meta$queries,
-        isList = meta.isList,
         resolve = meta.resolve,
         forceUpdates = meta.forceUpdates,
         reject = meta.reject,
@@ -396,12 +425,21 @@ function epic(action$, store, _ref3) {
       type = getFormRequestType(form, (0, _get["default"])(store.getState(), "".concat(namespace, ".data")));
     }
 
-    return (0, _concat.concat)((0, _of.of)(!forceUpdates && setLoading(true, meta), !forceUpdates && setErrors({}, meta), withNavigation && type === 'GET' && navigate((0, _pick["default"])(payload, queries)), !(0, _isEmpty["default"])(queries) && !forceUpdates && setFilters((0, _pick["default"])(payload, queries), meta)), (0, _fromPromise.fromPromise)(API(endpoint).request(type, (0, _pick["default"])(payload, queries), (0, _omit["default"])(payload, queries))).switchMap(function (response) {
-      return (0, _of.of)(isList && type !== 'GET' ? request(undefined, _objectSpread({}, meta, {
-        type: 'GET'
-      })) : setData(response, meta), !forceUpdates && setLoading(false, meta), resolve(response));
+    return (0, _concat.concat)((0, _of.of)(!forceUpdates && setResourceData({
+      isLoading: true,
+      errors: {},
+      filters: (0, _pick["default"])(payload, queries || [])
+    }, meta), withNavigation && type === 'GET' && navigate((0, _pick["default"])(payload, queries))), (0, _fromPromise.fromPromise)(API(endpoint).request(type, (0, _pick["default"])(payload, queries), (0, _omit["default"])(payload, queries))).switchMap(function (response) {
+      var _setResourceData;
+
+      resolve(response);
+      return (0, _of.of)(setResourceData((_setResourceData = {}, _defineProperty(_setResourceData, type === 'OPTIONS' ? 'options' : 'data', response), _defineProperty(_setResourceData, "isLoading", false), _setResourceData), meta));
     })["catch"](function (err) {
-      return (0, _concat.concat)((0, _of.of)(!forceUpdates && setErrors(err.errors || err, meta), !forceUpdates && setLoading(false, meta), reject(err.errors || err, meta))).filter(Boolean);
+      reject((0, _get["default"])(err, 'errors', err));
+      return (0, _concat.concat)((0, _of.of)(!forceUpdates && setResourceData({
+        isLoading: false,
+        errors: (0, _get["default"])(err, 'errors', err)
+      }, meta))).filter(Boolean);
     })).filter(Boolean);
   });
 }
@@ -423,7 +461,7 @@ function combineReducers(reducers) {
         return _objectSpread({}, state, {}, action.payload);
 
       case CLEAR_ALL:
-        return (0, _pick["default"])(state, ['router'].concat(_toConsumableArray(PERSIST_WHITE_LIST)));
+        return (0, _pick["default"])(state, PERSIST_WHITE_LIST);
 
       default:
         if (action.type.startsWith('@resource/')) {
