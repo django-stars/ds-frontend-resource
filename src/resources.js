@@ -25,6 +25,7 @@ export const SET_DATA = '@resource/set-data'
 const SET_ERRORS = '@resource/set-errors'
 const SET_LOADING = '@resource/set-loading'
 const SET_FILTERS = '@resource/set-filters'
+const SET_RESOURCE_DATA = '@resource/set-resourceData'
 const CLEAR_RESOURCES = '@resource/clear'
 export const PERSIST = '@@Persist@@'
 export const CLEAR_ALL = '@@CLEAR_ALL@@'
@@ -55,6 +56,14 @@ export function request(payload, meta) {
 export function setData(payload, meta) {
   return {
     type: SET_DATA,
+    meta,
+    payload,
+  }
+}
+
+export function setResourceData(payload, meta) {
+  return {
+    type: SET_RESOURCE_DATA,
     meta,
     payload,
   }
@@ -188,9 +197,28 @@ export default function connectResouces(resource, options = {}) {
   )
 }
 
+function makeData(dataFunction, state, payload) {
+  if(typeof dataFunction === 'function') {
+    return dataFunction(get(state, 'data'), payload)
+  }
+  return concatDataFunctions[dataFunction](get(state, 'data'), payload)
+}
+
 
 export function resourcesReducer(state = {}, { type, payload = {}, meta = {} }) {
   switch (type) {
+    case SET_RESOURCE_DATA:
+      const {
+        data, errors, isLoading, filters, options,
+      } = payload
+      return {
+        ...state,
+        errors: errors || state.errors,
+        isLoading: isLoading === undefined ? state.isLoading : isLoading,
+        filters: filters || state.filters,
+        options: options || state.options,
+        data: data ? makeData(get(meta, 'dataFunction', 'object'), state, payload) : state.data,
+      }
     case SET_ERRORS:
     case SET_FILTERS:
     case SET_LOADING:
@@ -207,12 +235,9 @@ export function resourcesReducer(state = {}, { type, payload = {}, meta = {} }) 
           options: get(state, 'options'),
         })
       }
-      const { dataFunction = 'object' } = meta
       return ({
         ...state,
-        data: typeof dataFunction === 'function'
-          ? dataFunction(get(state, 'data'), payload)
-          : concatDataFunctions[dataFunction](get(state, 'data'), payload),
+        data: makeData(get(meta, 'dataFunction', 'object'), state, payload),
       })
     default:
       return state
@@ -258,7 +283,6 @@ export function epic(action$, store, { API, navigate }) { // FIXME API
         form,
         namespace,
         queries = [],
-        isList,
         resolve,
         forceUpdates,
         reject,
@@ -273,22 +297,29 @@ export function epic(action$, store, { API, navigate }) { // FIXME API
       }
       return concat(
         of(
-          !forceUpdates && setLoading(true, meta),
-          !forceUpdates && setErrors({}, meta),
+          !forceUpdates && setResourceData({
+            isLoading: true,
+            errors: {},
+            filters: pick(payload, queries || []),
+          }, meta),
           withNavigation && type === 'GET' && navigate(pick(payload, queries)),
-          !isEmpty(queries) && !forceUpdates && setFilters(pick(payload, queries), meta),
         ),
         fromPromise(API(endpoint).request(type, pick(payload, queries), omit(payload, queries)))
-          .switchMap(response => of(
-            (isList && type !== 'GET') ? request(undefined, { ...meta, type: 'GET' }) : setData(response, meta),
-            !forceUpdates && setLoading(false, meta),
-            resolve(response),
-          ))
-          .catch(err => concat(of(
-            !forceUpdates && setErrors(err.errors || err, meta),
-            !forceUpdates && setLoading(false, meta),
-            reject(err.errors || err, meta),
-          )).filter(Boolean)),
+          .switchMap(response => {
+            resolve(response)
+            return of(setResourceData({
+              [type === 'OPTIONS' ? 'options' : 'data']: response,
+              isLoading: false,
+            }, meta))
+          })
+          .catch(err => {
+            reject(get(err, 'errors', err))
+            return concat(
+              of(
+                !forceUpdates && setResourceData({ isLoading: false, errors: get(err, 'errors', err) }, meta)
+              )
+            ).filter(Boolean)
+          }),
       ).filter(Boolean)
     })
 }
@@ -304,7 +335,7 @@ export function combineReducers(reducers, initialState = {}) {
       case PERSIST:
         return { ...state, ...action.payload }
       case CLEAR_ALL:
-        return pick(state, ['router', ...PERSIST_WHITE_LIST])
+        return pick(state, PERSIST_WHITE_LIST)
       default:
         if(action.type.startsWith('@resource/')) {
           return {
