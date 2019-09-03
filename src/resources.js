@@ -1,22 +1,10 @@
 import { compose } from 'redux'
 import { connect } from 'react-redux'
 
-import { fromPromise } from 'rxjs/observable/fromPromise'
-import { concat } from 'rxjs/observable/concat'
-import { of } from 'rxjs/observable/of'
-
-import 'rxjs/add/operator/delay'
-import 'rxjs/add/operator/switchMap'
-import 'rxjs/add/operator/mergeMap'
-import 'rxjs/add/operator/catch'
-import 'rxjs/add/operator/filter'
-import 'rxjs/add/operator/takeUntil'
-
 import pathToRegexp from 'path-to-regexp'
 
 import omit from 'lodash/omit'
 import pick from 'lodash/pick'
-import isEmpty from 'lodash/isEmpty'
 import get from 'lodash/get'
 import has from 'lodash/has'
 
@@ -26,7 +14,6 @@ const SET_ERRORS = '@resource/set-errors'
 const SET_LOADING = '@resource/set-loading'
 const SET_FILTERS = '@resource/set-filters'
 const SET_RESOURCE_DATA = '@resource/set-resourceData'
-const CLEAR_RESOURCES = '@resource/clear'
 export const PERSIST = '@@Persist@@'
 export const CLEAR_ALL = '@@CLEAR_ALL@@'
 
@@ -42,14 +29,6 @@ export function persistAction(payload) {
   return {
     type: PERSIST,
     payload: { ...payload, persisted: true },
-  }
-}
-
-export function request(payload, meta) {
-  return {
-    type: REQUEST,
-    meta,
-    payload,
   }
 }
 
@@ -94,8 +73,8 @@ export function setLoading(payload, meta) {
 }
 
 function getNameSpaceFromResource(resource) {
-  if(typeof resource === 'string') { return { namespace: resource, key: resource } }
-  return { namespace: resource.namespace, key: resource.prefix || resource.namespace }
+  if(typeof resource === 'string') { return resource }
+  return resource.namespace
 }
 
 
@@ -105,94 +84,118 @@ function mapStateToProps(resources) {
       resources = [resources]
     }
     return resources.reduce((res, resource) => {
-      const { key, namespace } = getNameSpaceFromResource(resource)
+      const key = getNameSpaceFromResource(resource)
       return {
         ...res,
-        [key]: { ...props[key], ...get(state, namespace, {}) },
+        [key]: { ...props[key], ...get(state, key, {}) },
       }
     }, {})
   }
 }
 
-function getMetaFromResource(resource, options = {}) {
+function getMetaFromResource(resource) {
   if(typeof resource === 'string') {
     return {
-      endpoint: resource, namespace: resource, dataFunction: 'object', ...options,
+      endpoint: resource, namespace: resource, dataFunction: 'object',
     }
   }
   return {
     dataFunction: 'object',
     ...resource,
-    ...options,
     endpoint: resource.endpoint || resource.namespace,
     namespace: resource.namespace,
   }
 }
 
-function makeRequestAction(type, meta) {
-  return dispatch => (payload, actionmeta = {}) => new Promise((resolve, reject) => {
-    dispatch(request(payload, {
-      ...meta, resolve, reject, ...actionmeta, type,
-    }))
-  })
+function defaultHTTPRequest(API, payload, meta) {
+  return API(meta.endpoint).request(meta.type, pick(payload, meta.queries), omit(payload, meta.queries))
 }
 
-function makeSimpleAction(meta, action) {
-  return dispatch => (payload, actionmeta = {}) => dispatch(action(payload, { ...meta, ...actionmeta }))
-}
-
-function makeResourceActions(resource, options = {}) {
-  const meta = getMetaFromResource(resource, options)
-  const actions = {
-    create: makeRequestAction('POST', meta),
-    fetch: makeRequestAction('GET', meta),
-    update: makeRequestAction('PATCH', meta),
-    remove: makeRequestAction('DELETE', meta),
-    replace: makeRequestAction('PUT', meta),
-    fetchOptions: makeRequestAction('OPTIONS', meta),
-    setData: makeSimpleAction(meta, setData),
-    setErrors: makeSimpleAction(meta, setErrors),
-    setLoading: makeSimpleAction(meta, setLoading),
+function makeRequest(httpRequest) {
+  return function request(payload, meta) {
+    return (dispatch, getState, { API, navigate }) => {
+      let {
+        type,
+        endpoint,
+        queries = [],
+        forceUpdates,
+        withNavigation = false,
+      } = meta
+      if(endpoint.search(/\/:/) > -1) {
+        endpoint = pathToRegexp.compile(endpoint)(payload)
+      }
+      if(!forceUpdates) {
+        dispatch(setResourceData({
+          isLoading: true,
+          errors: {},
+          filters: pick(payload, queries || []),
+        }, meta))
+      }
+      if(withNavigation && type === 'GET') {
+        navigate({ dispatch, getState }, payload, meta)
+      }
+      return httpRequest(API, payload, { ...meta, endpoint })
+        .then(response => {
+          dispatch(setResourceData({
+            [type === 'OPTIONS' ? 'options' : 'data']: response,
+            isLoading: false,
+          }, meta))
+          return response
+        })
+        .catch(err => {
+          if(!forceUpdates) {
+            dispatch(setResourceData({ isLoading: false, errors: get(err, 'errors', err) }, meta))
+          }
+          throw err
+        })
+    }
   }
-  if(get(resource, 'form')) {
-    actions.onSubmit = makeRequestAction('submitForm', meta)
+}
+
+const defaultFetch = makeRequest(defaultHTTPRequest)
+
+function makeRequestAction(type, meta, dispatch) {
+  return function(payload, actionmeta) {
+    return dispatch(defaultFetch(payload, { ...meta, ...actionmeta, type }))
+  }
+}
+
+function makeSimpleAction(meta, action, dispatch) {
+  return (payload, actionmeta = {}) => dispatch(action(payload, { ...meta, ...actionmeta }))
+}
+
+function makeResourceActions(resource, dispatch) {
+  const meta = getMetaFromResource(resource)
+  const actions = {
+    create: makeRequestAction('POST', meta, dispatch),
+    fetch: makeRequestAction('GET', meta, dispatch),
+    update: makeRequestAction('PATCH', meta, dispatch),
+    remove: makeRequestAction('DELETE', meta, dispatch),
+    replace: makeRequestAction('PUT', meta, dispatch),
+    fetchOptions: makeRequestAction('OPTIONS', meta, dispatch),
+    setData: makeSimpleAction(meta, setData, dispatch),
+    setErrors: makeSimpleAction(meta, setErrors, dispatch),
+    setLoading: makeSimpleAction(meta, setLoading, dispatch),
   }
   if(has(resource, 'queries')) {
-    actions.setFilters = makeSimpleAction(meta, setFilters)
+    actions.setFilters = makeSimpleAction(meta, setFilters, dispatch)
   }
   return actions
 }
 
-function bindActions(actions, dispatch) {
-  return Object.keys(actions).reduce((acts, key) => {
-    if(!actions[key]) { return acts }
-    return {
-      ...acts,
-      [key]: actions[key](dispatch),
-    }
-  }, {})
-}
-
-function mapDispatchToProps(resources, options) {
-  return (dispatch) => {
-    if(!Array.isArray(resources)) {
-      resources = [resources]
-    }
-    return resources.reduce((res, resource) => {
-      const { key } = getNameSpaceFromResource(resource)
-      const { onSubmit, ...actions } = makeResourceActions(resource, options)
-      return {
-        ...res,
-        [key]: { ...res[key], ...bindActions(actions, dispatch) },
-        onSubmit: res.onSubmit || bindActions({ onSubmit }, dispatch).onSubmit,
-      }
-    }, {})
+function mapDispatchToProps(resources, dispatch) {
+  if(!Array.isArray(resources)) {
+    resources = [resources]
   }
+  return resources.reduce((res, resource) => ({
+    ...res,
+    [getNameSpaceFromResource(resource)]: makeResourceActions(resource, dispatch),
+  }), {})
 }
 
-export default function connectResouces(resource, options = {}) {
+export default function connectResouces(resource) {
   return compose(
-    connect(null, (_, props) => mapDispatchToProps(resource, options, props)),
+    connect(null, dispatch => mapDispatchToProps(resource, dispatch)),
     connect(mapStateToProps(resource)),
   )
 }
@@ -217,7 +220,7 @@ export function resourcesReducer(state = {}, { type, payload = {}, meta = {} }) 
         isLoading: isLoading === undefined ? state.isLoading : isLoading,
         filters: filters || state.filters,
         options: options || state.options,
-        data: data ? makeData(get(meta, 'dataFunction', 'object'), state, payload.data) : state.data,
+        data: data ? makeData(get(meta, 'dataFunction', 'object'), state, data) : state.data,
       }
     case SET_ERRORS:
     case SET_FILTERS:
@@ -266,63 +269,6 @@ const concatDataFunctions = {
   replace: (_, next) => next,
 }
 
-function getFormRequestType(form = {}, data) {
-  const { formAction, switchActionByKey } = form
-  if(!switchActionByKey) {
-    return formAction || 'POST'
-  }
-  return get(data, switchActionByKey) ? get(formAction, 'update', 'PUT') : get(formAction, 'create', 'POST')
-}
-
-export function epic(action$, store, { API, navigate }) { // FIXME API
-  return action$.ofType(REQUEST)
-    .mergeMap(({ meta, payload }) => {
-      let {
-        type,
-        endpoint,
-        form,
-        namespace,
-        queries = [],
-        resolve,
-        forceUpdates,
-        reject,
-        withNavigation = false,
-      } = meta
-      if(endpoint.search(/\/:/) > -1) {
-        endpoint = pathToRegexp.compile(endpoint)(payload)
-      }
-      const isFormAction = type === 'submitForm'
-      if(isFormAction) {
-        type = getFormRequestType(form, get(store.getState(), `${namespace}.data`))
-      }
-      return concat(
-        of(
-          !forceUpdates && setResourceData({
-            isLoading: true,
-            errors: {},
-            filters: pick(payload, queries || []),
-          }, meta),
-          withNavigation && type === 'GET' && navigate(pick(payload, queries)),
-        ),
-        fromPromise(API(endpoint).request(type, pick(payload, queries), omit(payload, queries)))
-          .switchMap(response => {
-            resolve(response)
-            return of(setResourceData({
-              [type === 'OPTIONS' ? 'options' : 'data']: response,
-              isLoading: false,
-            }, meta))
-          })
-          .catch(err => {
-            reject(get(err, 'errors', err))
-            return concat(
-              of(
-                !forceUpdates && setResourceData({ isLoading: false, errors: get(err, 'errors', err) }, meta)
-              )
-            ).filter(Boolean)
-          }),
-      ).filter(Boolean)
-    })
-}
 
 var PERSIST_WHITE_LIST = []
 export function setPersistWhiteList(whitelist) {
@@ -351,72 +297,29 @@ export function combineReducers(reducers, initialState = {}) {
   }
 }
 
-export function makeCustomEpic(actionType, customFetch) {
-  function epic(action$, store, { API, navigate }) { // FIXME API
-    return action$.ofType(actionType)
-      .mergeMap(({ meta, payload }) => {
-        let {
-          type,
-          endpoint,
-          queries = [],
-          resolve,
-          forceUpdates,
-          reject,
-          withNavigation = false,
-        } = meta
-        if(endpoint.search(/\/:/) > -1) {
-          endpoint = pathToRegexp.compile(endpoint)(payload)
-        }
-        return concat(
-          of(
-            !forceUpdates && setLoading(true, meta),
-            !forceUpdates && setErrors({}, meta),
-            withNavigation && navigate(pick(payload, queries)),
-            !isEmpty(queries) && !forceUpdates && setFilters(pick(payload, queries), meta),
-          ),
-          fromPromise(customFetch(API, payload, { ...meta, endpoint }))
-            .switchMap(response => of(
-              setData(response, meta),
-              !forceUpdates && setLoading(false, meta),
-              resolve(response),
-            ))
-            .catch(err => concat(of(
-              !forceUpdates && setErrors(err.errors || err, meta),
-              !forceUpdates && setLoading(false, meta),
-              reject(err.errors || err, meta),
-            )).filter(Boolean)),
-        ).filter(Boolean)
-      })
-  }
-
-  function connectResouces(resource = {}) {
-    if(!has(resource, 'namespace')) {
-      throw new Error('connect custom epic should have "namespace"')
+export function customResource(customFetch) {
+  return function(resource) {
+    if(Array.isArray(resource)) {
+      throw new Error('custom resource config can not be an array')
     }
+    if(typeof resource === 'string') {
+      resource = {
+        endpoint: resource,
+        namespace: resource,
+        dataFunction: 'object',
+      }
+    }
+    const { namespace } = resource
     return compose(
-      connect(null, (dispatch, props) => ({
-        [resource.namespace]: {
-          fetch: (payload, actionmeta = {}) => new Promise((resolve, reject) => {
-            dispatch({
-              type: actionType,
-              payload,
-              meta: { ...resource, ...actionmeta, resolve, reject },
-            })
-          }),
+      connect(null, dispatch => ({
+        [namespace]: {
+          ...mapDispatchToProps(resource, dispatch)[namespace],
+          customFetch: function(payload, actionmeta) {
+            return dispatch(makeRequest(customFetch)(payload, { ...resource, ...actionmeta }))
+          },
         },
       })),
-      connect((state, props) => ({
-        ...props,
-        [resource.namespace]: {
-          ...get(props, resource.namespace, {}),
-          ...get(state, resource.namespace, {}),
-        },
-      })),
+      connect(mapStateToProps(resource)),
     )
-  }
-
-  return {
-    connect: connectResouces,
-    epic,
   }
 }

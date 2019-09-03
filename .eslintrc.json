@@ -33,6 +33,7 @@
       "error",
       "all"
     ],
+    "no-case-declarations": 0,
     "comma-dangle": [
       "error",
       "always-multiline"
