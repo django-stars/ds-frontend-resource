@@ -19,6 +19,7 @@
     "LICENSE",
     "README.md",
     "resources.js",
+    "thunk.js",
     "package.json"
   ],
   "keywords": [

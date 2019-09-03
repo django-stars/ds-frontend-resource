@@ -5,48 +5,26 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.clearAllData = clearAllData;
 exports.persistAction = persistAction;
-exports.request = request;
 exports.setData = setData;
 exports.setFilters = setFilters;
 exports.setErrors = setErrors;
 exports.setLoading = setLoading;
 exports["default"] = connectResouces;
 exports.resourcesReducer = resourcesReducer;
-exports.epic = epic;
 exports.setPersistWhiteList = setPersistWhiteList;
 exports.combineReducers = combineReducers;
-exports.makeCustomEpic = makeCustomEpic;
+exports.customResource = customResource;
 exports.CLEAR_ALL = exports.PERSIST = exports.SET_DATA = exports.REQUEST = void 0;
 
 var _redux = require("redux");
 
 var _reactRedux = require("react-redux");
 
-var _fromPromise = require("rxjs/observable/fromPromise");
-
-var _concat = require("rxjs/observable/concat");
-
-var _of = require("rxjs/observable/of");
-
-require("rxjs/add/operator/delay");
-
-require("rxjs/add/operator/switchMap");
-
-require("rxjs/add/operator/mergeMap");
-
-require("rxjs/add/operator/catch");
-
-require("rxjs/add/operator/filter");
-
-require("rxjs/add/operator/takeUntil");
-
 var _pathToRegexp = _interopRequireDefault(require("path-to-regexp"));
 
 var _omit = _interopRequireDefault(require("lodash/omit"));
 
 var _pick = _interopRequireDefault(require("lodash/pick"));
-
-var _isEmpty = _interopRequireDefault(require("lodash/isEmpty"));
 
 var _get = _interopRequireDefault(require("lodash/get"));
 
@@ -62,10 +40,6 @@ function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.
 
 function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
 
-function _objectWithoutProperties(source, excluded) { if (source == null) return {}; var target = _objectWithoutPropertiesLoose(source, excluded); var key, i; if (Object.getOwnPropertySymbols) { var sourceSymbolKeys = Object.getOwnPropertySymbols(source); for (i = 0; i < sourceSymbolKeys.length; i++) { key = sourceSymbolKeys[i]; if (excluded.indexOf(key) >= 0) continue; if (!Object.prototype.propertyIsEnumerable.call(source, key)) continue; target[key] = source[key]; } } return target; }
-
-function _objectWithoutPropertiesLoose(source, excluded) { if (source == null) return {}; var target = {}; var sourceKeys = Object.keys(source); var key, i; for (i = 0; i < sourceKeys.length; i++) { key = sourceKeys[i]; if (excluded.indexOf(key) >= 0) continue; target[key] = source[key]; } return target; }
-
 function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
 
 function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(source, true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(source).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
@@ -80,7 +54,6 @@ var SET_ERRORS = '@resource/set-errors';
 var SET_LOADING = '@resource/set-loading';
 var SET_FILTERS = '@resource/set-filters';
 var SET_RESOURCE_DATA = '@resource/set-resourceData';
-var CLEAR_RESOURCES = '@resource/clear';
 var PERSIST = '@@Persist@@';
 exports.PERSIST = PERSIST;
 var CLEAR_ALL = '@@CLEAR_ALL@@';
@@ -99,14 +72,6 @@ function persistAction(payload) {
     payload: _objectSpread({}, payload, {
       persisted: true
     })
-  };
-}
-
-function request(payload, meta) {
-  return {
-    type: REQUEST,
-    meta: meta,
-    payload: payload
   };
 }
 
@@ -152,16 +117,10 @@ function setLoading(payload, meta) {
 
 function getNameSpaceFromResource(resource) {
   if (typeof resource === 'string') {
-    return {
-      namespace: resource,
-      key: resource
-    };
+    return resource;
   }
 
-  return {
-    namespace: resource.namespace,
-    key: resource.prefix || resource.namespace
-  };
+  return resource.namespace;
 }
 
 function mapStateToProps(resources) {
@@ -171,122 +130,137 @@ function mapStateToProps(resources) {
     }
 
     return resources.reduce(function (res, resource) {
-      var _getNameSpaceFromReso = getNameSpaceFromResource(resource),
-          key = _getNameSpaceFromReso.key,
-          namespace = _getNameSpaceFromReso.namespace;
-
-      return _objectSpread({}, res, _defineProperty({}, key, _objectSpread({}, props[key], {}, (0, _get["default"])(state, namespace, {}))));
+      var key = getNameSpaceFromResource(resource);
+      return _objectSpread({}, res, _defineProperty({}, key, _objectSpread({}, props[key], {}, (0, _get["default"])(state, key, {}))));
     }, {});
   };
 }
 
 function getMetaFromResource(resource) {
-  var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-
   if (typeof resource === 'string') {
-    return _objectSpread({
+    return {
       endpoint: resource,
       namespace: resource,
       dataFunction: 'object'
-    }, options);
+    };
   }
 
   return _objectSpread({
     dataFunction: 'object'
-  }, resource, {}, options, {
+  }, resource, {
     endpoint: resource.endpoint || resource.namespace,
     namespace: resource.namespace
   });
 }
 
-function makeRequestAction(type, meta) {
-  return function (dispatch) {
-    return function (payload) {
-      var actionmeta = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-      return new Promise(function (resolve, reject) {
-        dispatch(request(payload, _objectSpread({}, meta, {
-          resolve: resolve,
-          reject: reject
-        }, actionmeta, {
-          type: type
-        })));
+function defaultHTTPRequest(API, payload, meta) {
+  return API(meta.endpoint).request(meta.type, (0, _pick["default"])(payload, meta.queries), (0, _omit["default"])(payload, meta.queries));
+}
+
+function makeRequest(httpRequest) {
+  return function request(payload, meta) {
+    return function (dispatch, getState, _ref) {
+      var API = _ref.API,
+          navigate = _ref.navigate;
+      var type = meta.type,
+          endpoint = meta.endpoint,
+          _meta$queries = meta.queries,
+          queries = _meta$queries === void 0 ? [] : _meta$queries,
+          forceUpdates = meta.forceUpdates,
+          _meta$withNavigation = meta.withNavigation,
+          withNavigation = _meta$withNavigation === void 0 ? false : _meta$withNavigation;
+
+      if (endpoint.search(/\/:/) > -1) {
+        endpoint = _pathToRegexp["default"].compile(endpoint)(payload);
+      }
+
+      if (!forceUpdates) {
+        dispatch(setResourceData({
+          isLoading: true,
+          errors: {},
+          filters: (0, _pick["default"])(payload, queries || [])
+        }, meta));
+      }
+
+      if (withNavigation && type === 'GET') {
+        navigate({
+          dispatch: dispatch,
+          getState: getState
+        }, payload, meta);
+      }
+
+      return httpRequest(API, payload, _objectSpread({}, meta, {
+        endpoint: endpoint
+      })).then(function (response) {
+        var _setResourceData;
+
+        dispatch(setResourceData((_setResourceData = {}, _defineProperty(_setResourceData, type === 'OPTIONS' ? 'options' : 'data', response), _defineProperty(_setResourceData, "isLoading", false), _setResourceData), meta));
+        return response;
+      })["catch"](function (err) {
+        if (!forceUpdates) {
+          dispatch(setResourceData({
+            isLoading: false,
+            errors: (0, _get["default"])(err, 'errors', err)
+          }, meta));
+        }
+
+        throw err;
       });
     };
   };
 }
 
-function makeSimpleAction(meta, action) {
-  return function (dispatch) {
-    return function (payload) {
-      var actionmeta = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-      return dispatch(action(payload, _objectSpread({}, meta, {}, actionmeta)));
-    };
+var defaultFetch = makeRequest(defaultHTTPRequest);
+
+function makeRequestAction(type, meta, dispatch) {
+  return function (payload, actionmeta) {
+    return dispatch(defaultFetch(payload, _objectSpread({}, meta, {}, actionmeta, {
+      type: type
+    })));
   };
 }
 
-function makeResourceActions(resource) {
-  var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-  var meta = getMetaFromResource(resource, options);
+function makeSimpleAction(meta, action, dispatch) {
+  return function (payload) {
+    var actionmeta = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+    return dispatch(action(payload, _objectSpread({}, meta, {}, actionmeta)));
+  };
+}
+
+function makeResourceActions(resource, dispatch) {
+  var meta = getMetaFromResource(resource);
   var actions = {
-    create: makeRequestAction('POST', meta),
-    fetch: makeRequestAction('GET', meta),
-    update: makeRequestAction('PATCH', meta),
-    remove: makeRequestAction('DELETE', meta),
-    replace: makeRequestAction('PUT', meta),
-    fetchOptions: makeRequestAction('OPTIONS', meta),
-    setData: makeSimpleAction(meta, setData),
-    setErrors: makeSimpleAction(meta, setErrors),
-    setLoading: makeSimpleAction(meta, setLoading)
+    create: makeRequestAction('POST', meta, dispatch),
+    fetch: makeRequestAction('GET', meta, dispatch),
+    update: makeRequestAction('PATCH', meta, dispatch),
+    remove: makeRequestAction('DELETE', meta, dispatch),
+    replace: makeRequestAction('PUT', meta, dispatch),
+    fetchOptions: makeRequestAction('OPTIONS', meta, dispatch),
+    setData: makeSimpleAction(meta, setData, dispatch),
+    setErrors: makeSimpleAction(meta, setErrors, dispatch),
+    setLoading: makeSimpleAction(meta, setLoading, dispatch)
   };
 
-  if ((0, _get["default"])(resource, 'form')) {
-    actions.onSubmit = makeRequestAction('submitForm', meta);
-  }
-
   if ((0, _has["default"])(resource, 'queries')) {
-    actions.setFilters = makeSimpleAction(meta, setFilters);
+    actions.setFilters = makeSimpleAction(meta, setFilters, dispatch);
   }
 
   return actions;
 }
 
-function bindActions(actions, dispatch) {
-  return Object.keys(actions).reduce(function (acts, key) {
-    if (!actions[key]) {
-      return acts;
-    }
+function mapDispatchToProps(resources, dispatch) {
+  if (!Array.isArray(resources)) {
+    resources = [resources];
+  }
 
-    return _objectSpread({}, acts, _defineProperty({}, key, actions[key](dispatch)));
+  return resources.reduce(function (res, resource) {
+    return _objectSpread({}, res, _defineProperty({}, getNameSpaceFromResource(resource), makeResourceActions(resource, dispatch)));
   }, {});
 }
 
-function mapDispatchToProps(resources, options) {
-  return function (dispatch) {
-    if (!Array.isArray(resources)) {
-      resources = [resources];
-    }
-
-    return resources.reduce(function (res, resource) {
-      var _objectSpread4;
-
-      var _getNameSpaceFromReso2 = getNameSpaceFromResource(resource),
-          key = _getNameSpaceFromReso2.key;
-
-      var _makeResourceActions = makeResourceActions(resource, options),
-          onSubmit = _makeResourceActions.onSubmit,
-          actions = _objectWithoutProperties(_makeResourceActions, ["onSubmit"]);
-
-      return _objectSpread({}, res, (_objectSpread4 = {}, _defineProperty(_objectSpread4, key, _objectSpread({}, res[key], {}, bindActions(actions, dispatch))), _defineProperty(_objectSpread4, "onSubmit", res.onSubmit || bindActions({
-        onSubmit: onSubmit
-      }, dispatch).onSubmit), _objectSpread4));
-    }, {});
-  };
-}
-
 function connectResouces(resource) {
-  var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-  return (0, _redux.compose)((0, _reactRedux.connect)(null, function (_, props) {
-    return mapDispatchToProps(resource, options, props);
+  return (0, _redux.compose)((0, _reactRedux.connect)(null, function (dispatch) {
+    return mapDispatchToProps(resource, dispatch);
   }), (0, _reactRedux.connect)(mapStateToProps(resource)));
 }
 
@@ -303,12 +277,12 @@ function resourcesReducer() {
 
   var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
-  var _ref = arguments.length > 1 ? arguments[1] : undefined,
-      type = _ref.type,
-      _ref$payload = _ref.payload,
-      payload = _ref$payload === void 0 ? {} : _ref$payload,
-      _ref$meta = _ref.meta,
-      meta = _ref$meta === void 0 ? {} : _ref$meta;
+  var _ref2 = arguments.length > 1 ? arguments[1] : undefined,
+      type = _ref2.type,
+      _ref2$payload = _ref2.payload,
+      payload = _ref2$payload === void 0 ? {} : _ref2$payload,
+      _ref2$meta = _ref2.meta,
+      meta = _ref2$meta === void 0 ? {} : _ref2$meta;
 
   switch (type) {
     case SET_RESOURCE_DATA:
@@ -322,7 +296,7 @@ function resourcesReducer() {
         isLoading: isLoading === undefined ? state.isLoading : isLoading,
         filters: filters || state.filters,
         options: options || state.options,
-        data: data ? makeData((0, _get["default"])(meta, 'dataFunction', 'object'), state, payload.data) : state.data
+        data: data ? makeData((0, _get["default"])(meta, 'dataFunction', 'object'), state, data) : state.data
       });
 
     case SET_ERRORS:
@@ -365,9 +339,9 @@ var concatDataFunctions = {
       });
     }
 
-    var _ref2 = nextData || {},
-        count = _ref2.count,
-        results = _ref2.results;
+    var _ref3 = nextData || {},
+        count = _ref3.count,
+        results = _ref3.results;
 
     return {
       count: count,
@@ -381,68 +355,6 @@ var concatDataFunctions = {
     return next;
   }
 };
-
-function getFormRequestType() {
-  var form = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-  var data = arguments.length > 1 ? arguments[1] : undefined;
-  var formAction = form.formAction,
-      switchActionByKey = form.switchActionByKey;
-
-  if (!switchActionByKey) {
-    return formAction || 'POST';
-  }
-
-  return (0, _get["default"])(data, switchActionByKey) ? (0, _get["default"])(formAction, 'update', 'PUT') : (0, _get["default"])(formAction, 'create', 'POST');
-}
-
-function epic(action$, store, _ref3) {
-  var API = _ref3.API,
-      navigate = _ref3.navigate;
-  // FIXME API
-  return action$.ofType(REQUEST).mergeMap(function (_ref4) {
-    var meta = _ref4.meta,
-        payload = _ref4.payload;
-    var type = meta.type,
-        endpoint = meta.endpoint,
-        form = meta.form,
-        namespace = meta.namespace,
-        _meta$queries = meta.queries,
-        queries = _meta$queries === void 0 ? [] : _meta$queries,
-        resolve = meta.resolve,
-        forceUpdates = meta.forceUpdates,
-        reject = meta.reject,
-        _meta$withNavigation = meta.withNavigation,
-        withNavigation = _meta$withNavigation === void 0 ? false : _meta$withNavigation;
-
-    if (endpoint.search(/\/:/) > -1) {
-      endpoint = _pathToRegexp["default"].compile(endpoint)(payload);
-    }
-
-    var isFormAction = type === 'submitForm';
-
-    if (isFormAction) {
-      type = getFormRequestType(form, (0, _get["default"])(store.getState(), "".concat(namespace, ".data")));
-    }
-
-    return (0, _concat.concat)((0, _of.of)(!forceUpdates && setResourceData({
-      isLoading: true,
-      errors: {},
-      filters: (0, _pick["default"])(payload, queries || [])
-    }, meta), withNavigation && type === 'GET' && navigate((0, _pick["default"])(payload, queries))), (0, _fromPromise.fromPromise)(API(endpoint).request(type, (0, _pick["default"])(payload, queries), (0, _omit["default"])(payload, queries))).switchMap(function (response) {
-      var _setResourceData;
-
-      resolve(response);
-      return (0, _of.of)(setResourceData((_setResourceData = {}, _defineProperty(_setResourceData, type === 'OPTIONS' ? 'options' : 'data', response), _defineProperty(_setResourceData, "isLoading", false), _setResourceData), meta));
-    })["catch"](function (err) {
-      reject((0, _get["default"])(err, 'errors', err));
-      return (0, _concat.concat)((0, _of.of)(!forceUpdates && setResourceData({
-        isLoading: false,
-        errors: (0, _get["default"])(err, 'errors', err)
-      }, meta))).filter(Boolean);
-    })).filter(Boolean);
-  });
-}
-
 var PERSIST_WHITE_LIST = [];
 
 function setPersistWhiteList(whitelist) {
@@ -474,68 +386,28 @@ function combineReducers(reducers) {
   };
 }
 
-function makeCustomEpic(actionType, customFetch) {
-  function epic(action$, store, _ref5) {
-    var API = _ref5.API,
-        navigate = _ref5.navigate;
-    // FIXME API
-    return action$.ofType(actionType).mergeMap(function (_ref6) {
-      var meta = _ref6.meta,
-          payload = _ref6.payload;
-      var type = meta.type,
-          endpoint = meta.endpoint,
-          _meta$queries2 = meta.queries,
-          queries = _meta$queries2 === void 0 ? [] : _meta$queries2,
-          resolve = meta.resolve,
-          forceUpdates = meta.forceUpdates,
-          reject = meta.reject,
-          _meta$withNavigation2 = meta.withNavigation,
-          withNavigation = _meta$withNavigation2 === void 0 ? false : _meta$withNavigation2;
-
-      if (endpoint.search(/\/:/) > -1) {
-        endpoint = _pathToRegexp["default"].compile(endpoint)(payload);
-      }
-
-      return (0, _concat.concat)((0, _of.of)(!forceUpdates && setLoading(true, meta), !forceUpdates && setErrors({}, meta), withNavigation && navigate((0, _pick["default"])(payload, queries)), !(0, _isEmpty["default"])(queries) && !forceUpdates && setFilters((0, _pick["default"])(payload, queries), meta)), (0, _fromPromise.fromPromise)(customFetch(API, payload, _objectSpread({}, meta, {
-        endpoint: endpoint
-      }))).switchMap(function (response) {
-        return (0, _of.of)(setData(response, meta), !forceUpdates && setLoading(false, meta), resolve(response));
-      })["catch"](function (err) {
-        return (0, _concat.concat)((0, _of.of)(!forceUpdates && setErrors(err.errors || err, meta), !forceUpdates && setLoading(false, meta), reject(err.errors || err, meta))).filter(Boolean);
-      })).filter(Boolean);
-    });
-  }
-
-  function connectResouces() {
-    var resource = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-
-    if (!(0, _has["default"])(resource, 'namespace')) {
-      throw new Error('connect custom epic should have "namespace"');
+function customResource(_customFetch) {
+  return function (resource) {
+    if (Array.isArray(resource)) {
+      throw new Error('custom resource config can not be an array');
     }
 
-    return (0, _redux.compose)((0, _reactRedux.connect)(null, function (dispatch, props) {
-      return _defineProperty({}, resource.namespace, {
-        fetch: function fetch(payload) {
-          var actionmeta = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-          return new Promise(function (resolve, reject) {
-            dispatch({
-              type: actionType,
-              payload: payload,
-              meta: _objectSpread({}, resource, {}, actionmeta, {
-                resolve: resolve,
-                reject: reject
-              })
-            });
-          });
-        }
-      });
-    }), (0, _reactRedux.connect)(function (state, props) {
-      return _objectSpread({}, props, _defineProperty({}, resource.namespace, _objectSpread({}, (0, _get["default"])(props, resource.namespace, {}), {}, (0, _get["default"])(state, resource.namespace, {}))));
-    }));
-  }
+    if (typeof resource === 'string') {
+      resource = {
+        endpoint: resource,
+        namespace: resource,
+        dataFunction: 'object'
+      };
+    }
 
-  return {
-    connect: connectResouces,
-    epic: epic
+    var _resource = resource,
+        namespace = _resource.namespace;
+    return (0, _redux.compose)((0, _reactRedux.connect)(null, function (dispatch) {
+      return _defineProperty({}, namespace, _objectSpread({}, mapDispatchToProps(resource, dispatch)[namespace], {
+        customFetch: function customFetch(payload, actionmeta) {
+          return dispatch(makeRequest(_customFetch)(payload, _objectSpread({}, resource, {}, actionmeta)));
+        }
+      }));
+    }), (0, _reactRedux.connect)(mapStateToProps(resource)));
   };
 }
