@@ -217,7 +217,7 @@ export function resourcesReducer(state = {}, { type, payload = {}, meta = {} }) 
         isLoading: isLoading === undefined ? state.isLoading : isLoading,
         filters: filters || state.filters,
         options: options || state.options,
-        data: data ? makeData(get(meta, 'dataFunction', 'object'), state, payload) : state.data,
+        data: data ? makeData(get(meta, 'dataFunction', 'object'), state, payload.data) : state.data,
       }
     case SET_ERRORS:
     case SET_FILTERS:

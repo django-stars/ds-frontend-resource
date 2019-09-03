@@ -322,7 +322,7 @@ function resourcesReducer() {
         isLoading: isLoading === undefined ? state.isLoading : isLoading,
         filters: filters || state.filters,
         options: options || state.options,
-        data: data ? makeData((0, _get["default"])(meta, 'dataFunction', 'object'), state, payload) : state.data
+        data: data ? makeData((0, _get["default"])(meta, 'dataFunction', 'object'), state, payload.data) : state.data
       });
 
     case SET_ERRORS:
