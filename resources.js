@@ -154,21 +154,18 @@ function getMetaFromResource(resource) {
 }
 
 function defaultHTTPRequest(API, payload, meta) {
-  return API(meta.endpoint).request(meta.type, (0, _pick["default"])(payload, meta.queries), (0, _omit["default"])(payload, meta.queries));
+  return API(meta.endpoint, meta.signal).request(meta.type, (0, _pick["default"])(payload, meta.queries), (0, _omit["default"])(payload, meta.queries));
 }
 
 function makeRequest(httpRequest) {
   return function request(payload, meta) {
     return function (dispatch, getState, _ref) {
-      var API = _ref.API,
-          navigate = _ref.navigate;
+      var API = _ref.API;
       var type = meta.type,
           endpoint = meta.endpoint,
           _meta$queries = meta.queries,
           queries = _meta$queries === void 0 ? [] : _meta$queries,
-          forceUpdates = meta.forceUpdates,
-          _meta$withNavigation = meta.withNavigation,
-          withNavigation = _meta$withNavigation === void 0 ? false : _meta$withNavigation;
+          forceUpdates = meta.forceUpdates;
 
       if (endpoint.search(/\/:/) > -1) {
         endpoint = _pathToRegexp["default"].compile(endpoint)(payload);
@@ -182,15 +179,10 @@ function makeRequest(httpRequest) {
         }, meta));
       }
 
-      if (withNavigation && type === 'GET') {
-        navigate({
-          dispatch: dispatch,
-          getState: getState
-        }, payload, meta);
-      }
-
-      return httpRequest(API, payload, _objectSpread({}, meta, {
-        endpoint: endpoint
+      var controller = new AbortController();
+      var wrappedPromise = httpRequest(API, payload, _objectSpread({}, meta, {
+        endpoint: endpoint,
+        signal: controller.signal
       })).then(function (response) {
         var _setResourceData;
 
@@ -206,6 +198,12 @@ function makeRequest(httpRequest) {
 
         throw err;
       });
+
+      wrappedPromise.cancel = function () {
+        controller.abort();
+      };
+
+      return wrappedPromise;
     };
   };
 }
