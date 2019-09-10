@@ -108,18 +108,17 @@ function getMetaFromResource(resource) {
 }
 
 function defaultHTTPRequest(API, payload, meta) {
-  return API(meta.endpoint).request(meta.type, pick(payload, meta.queries), omit(payload, meta.queries))
+  return API(meta.endpoint, meta.signal).request(meta.type, pick(payload, meta.queries), omit(payload, meta.queries))
 }
 
 function makeRequest(httpRequest) {
   return function request(payload, meta) {
-    return (dispatch, getState, { API, navigate }) => {
+    return (dispatch, getState, { API }) => {
       let {
         type,
         endpoint,
         queries = [],
         forceUpdates,
-        withNavigation = false,
       } = meta
       if(endpoint.search(/\/:/) > -1) {
         endpoint = pathToRegexp.compile(endpoint)(payload)
@@ -131,10 +130,8 @@ function makeRequest(httpRequest) {
           filters: pick(payload, queries || []),
         }, meta))
       }
-      if(withNavigation && type === 'GET') {
-        navigate({ dispatch, getState }, payload, meta)
-      }
-      return httpRequest(API, payload, { ...meta, endpoint })
+      const controller = new AbortController()
+      var wrappedPromise = httpRequest(API, payload, { ...meta, endpoint, signal: controller.signal })
         .then(response => {
           dispatch(setResourceData({
             [type === 'OPTIONS' ? 'options' : 'data']: response,
@@ -148,6 +145,8 @@ function makeRequest(httpRequest) {
           }
           throw err
         })
+      wrappedPromise.cancel = function() { controller.abort() }
+      return wrappedPromise
     }
   }
 }
