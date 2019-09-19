@@ -97,7 +97,7 @@ resource = {
  endpoint: '/some/endpoint/with/:placeholders',
  forceUpdates: true|false (default false),
  withNavigation: true|false (default false),
- dataFunction: 'object|paginationList|none|replace|custom function' (default 'object'),
+ reducer: 'object|paginationList|none|replace|custom function' (default 'object'),
  queries: [],
  isList: true|false (default false),
 }
@@ -163,7 +163,7 @@ when you have id property (this props name can be changed via `idKey`) in props 
 
 used with list resources. representing initial query for fetch request.
 
-#### `dataFunction : String|Function` [optional] [default: 'object'}]
+#### `reducer : String|Function` [optional] [default: 'object'}]
 one of possible reducer functions that u can use.
 Possible variants:
 - **object**: Object.assign (prevState, nextState)
@@ -189,7 +189,7 @@ class App extends Component {
     this.props.books.fetch({id: 'harry_potter'}, {namespace: 'test', endpoint: 'cars'}) //that will send get request to cars endpoint and save data to test in redux
     or 
     this.props.books.setLoading(true); //set loading
-    this.props.books.fetch(null, {endpoint: 'users/me', dataFunction: 'none', forceUpdates: true})
+    this.props.books.fetch(null, {endpoint: 'users/me', reducer: 'none', forceUpdates: true})
       .then((me)=>this.props.books.fetch({id: me.uuid})) //get book with same uuid as user
     
   }
@@ -203,7 +203,7 @@ class App extends Component {
     namespace: 'books',
     endpoint: 'books/:id?',
     queries: ['offset', 'limit'],
-    dataFunction: 'paginationList'
+    reducer: 'paginationList'
   },
   'users' //u can use even just a string in case your enpoint == namespace and all other configs are default
  ])(App)

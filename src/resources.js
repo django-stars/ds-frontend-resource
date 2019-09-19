@@ -14,23 +14,7 @@ const SET_ERRORS = '@resource/set-errors'
 const SET_LOADING = '@resource/set-loading'
 const SET_FILTERS = '@resource/set-filters'
 const SET_RESOURCE_DATA = '@resource/set-resourceData'
-export const PERSIST = '@@Persist@@'
-export const CLEAR_ALL = '@@CLEAR_ALL@@'
 
-
-export function clearAllData(payload) {
-  return {
-    type: CLEAR_ALL,
-    payload,
-  }
-}
-
-export function persistAction(payload) {
-  return {
-    type: PERSIST,
-    payload: { ...payload, persisted: true },
-  }
-}
 
 export function setData(payload, meta) {
   return {
@@ -96,11 +80,11 @@ function mapStateToProps(resources) {
 function getMetaFromResource(resource) {
   if(typeof resource === 'string') {
     return {
-      endpoint: resource, namespace: resource, dataFunction: 'object',
+      endpoint: resource, namespace: resource, reducer: 'object',
     }
   }
   return {
-    dataFunction: 'object',
+    reducer: 'object',
     ...resource,
     endpoint: resource.endpoint || resource.namespace,
     namespace: resource.namespace,
@@ -199,11 +183,11 @@ export default function connectResouces(resource) {
   )
 }
 
-function makeData(dataFunction, state, payload) {
-  if(typeof dataFunction === 'function') {
-    return dataFunction(get(state, 'data'), payload)
+function makeData(reducer, state, payload) {
+  if(typeof reducer === 'function') {
+    return reducer(get(state, 'data'), payload)
   }
-  return concatDataFunctions[dataFunction](get(state, 'data'), payload)
+  return defaultReducers[reducer](get(state, 'data'), payload)
 }
 
 
@@ -219,7 +203,7 @@ export function resourcesReducer(state = {}, { type, payload = {}, meta = {} }) 
         isLoading: isLoading === undefined ? state.isLoading : isLoading,
         filters: filters || state.filters,
         options: options || state.options,
-        data: data ? makeData(get(meta, 'dataFunction', 'object'), state, data) : state.data,
+        data: data ? makeData(get(meta, 'reducer', 'object'), state, data) : state.data,
       }
     case SET_ERRORS:
     case SET_FILTERS:
@@ -239,14 +223,14 @@ export function resourcesReducer(state = {}, { type, payload = {}, meta = {} }) 
       }
       return ({
         ...state,
-        data: makeData(get(meta, 'dataFunction', 'object'), state, payload),
+        data: makeData(get(meta, 'reducer', 'object'), state, payload),
       })
     default:
       return state
   }
 }
 
-const concatDataFunctions = {
+const defaultReducers = {
   object: (prev = {}, next) => ({
     ...(prev || {}),
     ...(next || {}),
@@ -269,32 +253,16 @@ const concatDataFunctions = {
 }
 
 
-var PERSIST_WHITE_LIST = []
-export function setPersistWhiteList(whitelist) {
-  PERSIST_WHITE_LIST = whitelist
-}
-
-export function combineReducers(reducers, initialState = {}) {
-  return (state = initialState, action) => {
-    switch (action.type) {
-      case PERSIST:
-        return { ...state, ...action.payload }
-      case CLEAR_ALL:
-        return pick(state, PERSIST_WHITE_LIST)
-      default:
-        if(action.type.startsWith('@resource/')) {
-          return {
-            ...state,
-            [action.meta.namespace]: resourcesReducer(get(state, action.meta.namespace, {}), action),
-          }
-        }
-        return Object.keys(reducers).reduce((store, key) => ({
-          ...(store || {}),
-          [key]: reducers[key](get(state, key), action),
-        }), state)
+export function resources(state = {}, action) {
+  if(action.type.startsWith('@resource/')) {
+    return {
+      ...state,
+      [action.meta.namespace]: resourcesReducer(get(state, action.meta.namespace, {}), action),
     }
   }
+  return state
 }
+
 
 export function customResource(customFetch) {
   return function(resource) {
@@ -305,7 +273,7 @@ export function customResource(customFetch) {
       resource = {
         endpoint: resource,
         namespace: resource,
-        dataFunction: 'object',
+        reducer: 'object',
       }
     }
     const { namespace } = resource
