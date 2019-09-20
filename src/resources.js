@@ -1,6 +1,6 @@
 import { compose } from 'redux'
 import { connect } from 'react-redux'
-
+import PropTypes from 'prop-types'
 import pathToRegexp from 'path-to-regexp'
 
 import omit from 'lodash/omit'
@@ -15,6 +15,23 @@ const SET_LOADING = '@resource/set-loading'
 const SET_FILTERS = '@resource/set-filters'
 const SET_RESOURCE_DATA = '@resource/set-resourceData'
 
+export const Resource = PropTypes.shape({
+  create: PropTypes.func,
+  fetch: PropTypes.func,
+  fetchOptions: PropTypes.func,
+  remove: PropTypes.func,
+  replace: PropTypes.func,
+  update: PropTypes.func,
+  setData: PropTypes.func,
+  setErrors: PropTypes.func,
+  setLoading: PropTypes.func,
+  setFilters: PropTypes.func,
+  isLoading: PropTypes.bool,
+  options: PropTypes.object,
+  filters: PropTypes.object,
+  errors: PropTypes.object,
+  data: PropTypes.object,
+})
 
 export function setData(payload, meta) {
   return {
