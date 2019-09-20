@@ -1,5 +1,5 @@
 import pick from 'lodash/pick'
-import isEmpty from 'lodash/pick'
+import isEmpty from 'lodash/isEmpty'
 export const INIT_STORE = 'INIT_STORE'
 export const RESET_STORE = 'RESET_STORE'
 

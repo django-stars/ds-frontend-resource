@@ -1,6 +1,6 @@
 import { compose } from 'redux'
 import { connect } from 'react-redux'
-
+import axios from 'axios'
 import pathToRegexp from 'path-to-regexp'
 
 import omit from 'lodash/omit'
@@ -91,13 +91,19 @@ function getMetaFromResource(resource) {
   }
 }
 
-function defaultHTTPRequest(API, payload, meta) {
-  return API(meta.endpoint, meta.signal).request(meta.type, pick(payload, meta.queries), omit(payload, meta.queries))
+function defaultHTTPRequest(payload, meta) {
+  return axios.request({
+    method: meta.type,
+    url: meta.endpoint,
+    data: omit(payload, meta.queries),
+    params: pick(payload, meta.queries),
+    cancelToken: meta.token,
+  })
 }
 
 function makeRequest(httpRequest) {
   return function request(payload, meta) {
-    return (dispatch, getState, { API }) => {
+    return (dispatch, getState) => {
       let {
         type,
         endpoint,
@@ -114,8 +120,8 @@ function makeRequest(httpRequest) {
           filters: pick(payload, queries || []),
         }, meta))
       }
-      const controller = new AbortController()
-      var wrappedPromise = httpRequest(API, payload, { ...meta, endpoint, signal: controller.signal })
+      const source = axios.CancelToken.source()
+      var wrappedPromise = httpRequest(payload, { ...meta, endpoint, token: source.token })
         .then(response => {
           dispatch(setResourceData({
             [type === 'OPTIONS' ? 'options' : 'data']: response,
@@ -129,7 +135,7 @@ function makeRequest(httpRequest) {
           }
           throw err
         })
-      wrappedPromise.cancel = function() { controller.abort() }
+      wrappedPromise.cancel = function() { source.cancel() }
       return wrappedPromise
     }
   }

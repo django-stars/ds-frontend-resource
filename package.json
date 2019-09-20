@@ -9,6 +9,7 @@
     "prepublishOnly": "yarn clean && yarn build"
   },
   "peerDependencies": {
+    "axios": "^0.19.0",
     "lodash": "^4.17.5",
     "path-to-regexp": "^3.0.0",
     "react-redux": "^7.1.0",
@@ -20,6 +21,9 @@
     "README.md",
     "resources.js",
     "thunk.js",
+    "cache-middleware.js",
+    "persist.js",
+    "redux-helpers.js",
     "package.json"
   ],
   "keywords": [

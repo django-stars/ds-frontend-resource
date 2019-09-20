@@ -1,7 +1,6 @@
 import isEmpty from 'lodash/isEmpty'
 import debounce from 'lodash/debounce'
 import pick from 'lodash/pick'
-import get from 'lodash/get'
 import { init } from './persist'
 
 export default function cacheMiddleware({
@@ -13,7 +12,7 @@ export default function cacheMiddleware({
     let persisted = false
     Promise.resolve(storage.getItem(storeKey))
       .then(data => store.dispatch(init(data ? JSON.parse(data) : {})))
-      .catch(err => store.dispatch(init({})))
+      .catch(_ => store.dispatch(init({})))
       .finally(_ => { persisted = true })
     return next => action => {
       const result = next(action)
