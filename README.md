@@ -151,14 +151,6 @@ By default resources will trigger all circle methods
  
  In case u want just send HTTP request and then send another one for better performance it is better to set this param to false and call this methods by your own
 
-#### `withNavigation : Boolean` [optional] [default: false]
-In case u want to store your query params from API call in browser url u can set this param to true and then when u will GET `/users?offset=0&limit=20 ` this will automatically update browser url
-
-#### `isList : Boolean` [optional] [default: false]
-
-mark you resource as list resource. you endpoint should conins `:id?` placeholder, e.g. `accounts/:id?`
-when you have id property (this props name can be changed via `idKey`) in props then the item resource will be binded. otherwice list. 
-
 #### `queries : Object` [optional] [default: {}]
 
 used with list resources. representing initial query for fetch request.
