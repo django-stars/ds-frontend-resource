@@ -1,7 +1,7 @@
 import { compose } from 'redux'
 import { connect } from 'react-redux'
-
 import pathToRegexp from 'path-to-regexp'
+import PropTypes from 'prop-types'
 
 import omit from 'lodash/omit'
 import pick from 'lodash/pick'
@@ -14,6 +14,25 @@ const SET_ERRORS = '@resource/set-errors'
 const SET_LOADING = '@resource/set-loading'
 const SET_FILTERS = '@resource/set-filters'
 const SET_RESOURCE_DATA = '@resource/set-resourceData'
+
+
+export const ResourceType = PropTypes.shape({
+  create: PropTypes.func,
+  fetch: PropTypes.func,
+  fetchOptions: PropTypes.func,
+  remove: PropTypes.func,
+  replace: PropTypes.func,
+  update: PropTypes.func,
+  setData: PropTypes.func,
+  setErrors: PropTypes.func,
+  setLoading: PropTypes.func,
+  setFilters: PropTypes.func,
+  isLoading: PropTypes.bool,
+  options: PropTypes.object,
+  filters: PropTypes.object,
+  errors: PropTypes.object,
+  data: PropTypes.object,
+})
 
 
 export function setData(payload, meta) {
@@ -92,7 +111,13 @@ function getMetaFromResource(resource) {
 }
 
 function defaultHTTPRequest(API, payload, meta) {
-  return API(meta.endpoint, meta.signal).request(meta.type, pick(payload, meta.queries), omit(payload, meta.queries))
+  return API.request({
+    method: meta.type,
+    endpoint: meta.endpoint,
+    body: omit(payload, meta.queries),
+    params: pick(payload, meta.queries),
+    signal: meta.signal,
+  })
 }
 
 function makeRequest(httpRequest) {
@@ -115,7 +140,7 @@ function makeRequest(httpRequest) {
         }, meta))
       }
       const controller = new AbortController()
-      var wrappedPromise = httpRequest(API, payload, { ...meta, endpoint, signal: controller.signal })
+      const wrappedPromise = httpRequest(API, payload, { signal: controller.signal, ...meta, endpoint })
         .then(response => {
           dispatch(setResourceData({
             [type === 'OPTIONS' ? 'options' : 'data']: response,
@@ -191,7 +216,7 @@ function makeData(reducer, state, payload) {
 }
 
 
-export function resourcesReducer(state = {}, { type, payload = {}, meta = {} }) {
+export function resourcesDataReducer(state = {}, { type, payload = {}, meta = {} }) {
   switch (type) {
     case SET_RESOURCE_DATA:
       const {
@@ -253,11 +278,11 @@ const defaultReducers = {
 }
 
 
-export function resources(state = {}, action) {
+export function resourcesReducer(state = {}, action) {
   if(action.type.startsWith('@resource/')) {
     return {
       ...state,
-      [action.meta.namespace]: resourcesReducer(get(state, action.meta.namespace, {}), action),
+      [action.meta.namespace]: resourcesDataReducer(get(state, action.meta.namespace, {}), action),
     }
   }
   return state
@@ -265,7 +290,7 @@ export function resources(state = {}, action) {
 
 
 export function customResource(customFetch) {
-  return function(resource) {
+  return function customResourceFetch(resource) {
     if(Array.isArray(resource)) {
       throw new Error('custom resource config can not be an array')
     }
@@ -277,16 +302,18 @@ export function customResource(customFetch) {
       }
     }
     const { namespace } = resource
-    return compose(
+    const customeResourceConnectHOC = compose(
       connect(null, dispatch => ({
         [namespace]: {
           ...mapDispatchToProps(resource, dispatch)[namespace],
-          customFetch: function(payload, actionmeta) {
+          customRequest: function(payload, actionmeta) {
             return dispatch(makeRequest(customFetch)(payload, { ...resource, ...actionmeta }))
           },
         },
       })),
       connect(mapStateToProps(resource)),
     )
+    customeResourceConnectHOC.namespace = namespace
+    return customeResourceConnectHOC
   }
 }
