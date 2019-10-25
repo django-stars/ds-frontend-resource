@@ -1,6 +1,6 @@
 {
-  "name": "djangostars",
-  "version": "1.0.1",
+  "name": "ds-resource",
+  "version": "1.0.0",
   "description": "redux HOC for sending HTTP requests",
   "scripts": {
     "build": "babel src -d . --ignore **/__tests__",
