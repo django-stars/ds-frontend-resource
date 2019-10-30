@@ -1,6 +1,6 @@
 ## The goal
 
-working with REST-api and redux, using common practice, we always create almost same actions and reducers to send HTTP request to different endpoints. This will lead to problem that our projects has lot's of same code. For example
+working with REST-api and redux, using common practice, we always create almost same actions and reducers to send HTTP request to different endpoints. This will lead to problem that our projects will always have lot of duplicated code. For example
 
 ```
 // action types
@@ -52,8 +52,8 @@ function users(state = {}, action) {
 // TODO
 ...
 ```
-this example does not containts error handling, caching data, authhorization, options, filter ...
-And basically we always copy paste this code from file to file and rename functions and constans 
+this example does not contains error handling, caching data, authorization, options, filters ...
+And basically we always copy paste this code from file to file and rename function names and constants values
 
 ```
 fetchUsers
@@ -64,34 +64,33 @@ fetchOrders
 etc
 ```
 
-this package will  help u stop copypasting and start thinking about more interesting staff in your
+this package will  help u stop to duplicating code and start thinking about more interesting staff in your projects
 
-1. Полноценный CRUD:
+1. REST API CRUD:
 ```
 endpoint: /api/v1/users/:id
 
-GET /api/v1/users/ - получить список юзеров
-POST /api/v1/users/ - создать юзера
-GET /api/v1/users/1 - получить юзера
-PATCH /api/v1/users/1 - частично обновить юзера
-POST /api/v1/users/1 - полностью обновить юзера (лучше использовать PATCH)
+GET /api/v1/users/ - get users list
+POST /api/v1/users/ - create new user
+GET /api/v1/users/1 - get user details
+PATCH /api/v1/users/1 - update user
+POST /api/v1/users/1 - recreate user
 PUT /api/v1/users/1 - полностью перезаписать юзера (обычно не используем)
-DELETE /api/v1/users/1 - удалить юзера
-OPTIONS /api/v1/users/ - получить метаданные (обычно choices)
+DELETE /api/v1/users/1 - delete user
+OPTIONS /api/v1/users/ - get metadata
 ```
 
 2. endpoint CRUD
 ```
 endpoint: /api/v1/some/custom/endpoint
 ```
-отличается от предыдущего тем что это single ресурс, и все запросы формируются на один и тот же endpoint.
-при этом этом ресурс может быть предварительно создан на сервере, (тогда GET получает его первоначальное состояние) или же создается отдельно при помощи POST запроса.
+And this basically same as previous, but it has only 1 single resource.
 
-resource.js предоставляет вам возможность приконектить такие ресурсы без особой сложности. практически одной строчкой кода:
+resources will give u ability to add all data and methods to communicate with REST API almost with 1 line of code.
 ```
 connectResource([resource])
 
-// где:
+// where:
 resource = {
  namespace: 'internalResourceName',
  endpoint: '/some/endpoint/with/:placeholders',
@@ -99,18 +98,16 @@ resource = {
  withNavigation: true|false (default false),
  reducer: 'object|paginationList|none|replace|custom function' (default 'object'),
  queries: [],
- isList: true|false (default false),
 }
 ```
 
-в props получим такую структуру:
+And in props u will have next data:
 ```
 props.internalResourceName = {
   data: { /* ... resource data from API ... */ },
-  isLoading: false, // or true,
+  isLoading: true|false, 
   options: { /* parsed OPTIONS from API */ },
   errors: null, // or object with errors { },
-  loading: true|false, // number of currently loadings, used internaly
   
   // actions
   fetch: func, // GET request, useful when no prefetch
@@ -121,6 +118,7 @@ props.internalResourceName = {
   remove: func, // DELETE request
   replace: func, // PUT request if you need it
   setData: func, // you can update data in store manually, but please be carefull with this action
+  setLoading: func, // you can updates isLoading in store manually, but please be carefull with this action
   setErrors: func, // you can updates errors in store manually, but please be carefull with this action
   setFilters: func, // you can updates current filters in store manually, but please be carefull with this action
   filters: {}, // current applied filters
@@ -130,7 +128,7 @@ props.internalResourceName = {
 
 ## Options
 
-почти все опции можно задавать как на уровне конфигурации ресурса, так и на уровне коннекта
+all options could be defined with connectResource (on initialization level) and then u can override all options when  u will call a function
 
 
 #### `namespace : String` [required]
@@ -201,26 +199,50 @@ class App extends Component {
  ])(App)
 ```
 
-#### makeCustomEpic
-In case u need more complex logic rather then sending 1 HTTP request, but u still want to have all abilities that brings `resources`
-
+#### connect single resource 
 ```
-const {connect, epic} = makeCustomEpic(actionType, customFetch)
+connectResource({
+  namespace: 'books', 
+  endpoint: 'books/:id?'
+})
+or 
+connectResource('users')
 ```
-# params
-#### `actionType : String` [required]
-Action name for custom async function
-#### `customFetch : Function` [required]
-Async Function that should return Promise. this function will take next arguments:
-- `API`  object to send HTTP request
-- `payload`  action payload
-- `meta` action meta
+#### connect multiple resource 
+```
+connectResource([{
+  namespace: 'books', 
+  endpoint: 'books/:id?'
+}, 'users'])
+```
 
-## Example: 
+#### customResource
+In case u need more complex logic rather then sending 1 HTTP request, but u still want to have all abilities that brings `resources`.
+customResource will return HOC which will add same props as connectResource, and add 1 more function `this.props[namespace].customFetch` and this customFetch will work same as .fetch but instead of sending predefined single HTTP request it will run your own async task. So it might be very useful in your projects to have standard resource abilities + your own async job
+
 ```
 function myCustomFetch(API, payload, meta) {
-  return API(meta.endpoint).request('GET')
+  return new Promise(function(resolve,reject){
+    setTimeout(()=>resolve({succes: true}),1000)
+  })
 }
 
-const { connect, epic } = makeCustomEpic('TEST_API', myCustomFetch)
+const customConnect = customResource(myCustomFetch)
 ```
+
+then u can use this HOC with your components
+```
+class Test extends Component {
+  componentDidMount(){
+    this.props.test.customFetch({},{<owerride configs>})
+  }
+  ...
+}
+export default customConnect({namespace: 'test', endpoint: 'test'})(Test)
+//or 
+export default customConnect('test')(Test)
+///but not
+customConnect([{...}, 'test'])(Test)
+```
+
+customConnect HOC will not support array of resources because it is single resource HOC 
