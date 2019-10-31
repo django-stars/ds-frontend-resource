@@ -301,7 +301,7 @@ export function customResource(customFetch) {
         reducer: 'object',
       }
     }
-    const { namespace } = resource
+    const { namespace, endpoint } = resource
     const customeResourceConnectHOC = compose(
       connect(null, dispatch => ({
         [namespace]: {
@@ -314,6 +314,7 @@ export function customResource(customFetch) {
       connect(mapStateToProps(resource)),
     )
     customeResourceConnectHOC.namespace = namespace
+    customeResourceConnectHOC.endpoint = endpoint
     return customeResourceConnectHOC
   }
 }
