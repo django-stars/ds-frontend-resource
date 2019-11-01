@@ -246,3 +246,136 @@ customConnect([{...}, 'test'])(Test)
 ```
 
 customConnect HOC will not support array of resources because it is single resource HOC 
+
+
+# HOCS
+This package will also provide a standard list of React Hight Order Components:
+ - prefetchResources
+ - withReduxForm
+ - withInfinityList
+ 
+## prefetchResources
+A Height Order Component that will send Get Request on ComponentDidMount and, in case this request will be still pending,  terminate this request on ComponentWillUnmount. Also prefetch resource will use navigator params and queryparams from routeer by default.
+`prefetchResources(resources, options)`
+#### `resources : String|Object|function|Array` [required]
+- resources could be a String. In this case it will connect resource with `endpoint` and `namespace` that are equal to resources(String)
+- resources could be an Object. In this case this thould be configurations object for resources
+- resources could be a function. In case this is a function it should be a HOC that returns from `customResource` function. In this case HOC will send custom request on ComponentDidMount instead of using standard fetch
+- resources could be an array of whatever previous posibble values
+#### `options : Object` 
+with options u can specify some configuration such as 
+- `parseQueryParams: Function` => function that get String from location.search and transform this to Object. By defaylt uses parseQueryParams from `ds-api`
+- `defaultParams: Object` => object with whatever default params that should be passed to initial GET request
+- `cleanOnUnmount: Boolean` => whenever u need to clean data on unmount
+
+### usage
+```
+  // GET /users
+  prefetchResources('users') 
+  
+  // GET /users/me
+  prefetchResources({
+    namespase: 'user',
+    endpoint: 'users/:uuid'
+  }, {
+      defaultParams: {
+        uuid: 'me'
+      }
+  }) 
+  // run MyAsincFunction
+  const customConnect = customResource(MyAsincFunction)
+  prefetchResources(customConnect('custom'))
+  //All together
+  prefetchResources([
+    'users',
+    customConnect('custom'),
+    {
+      namespase: 'user',
+      endpoint: 'users/:uuid'
+    },
+  ],{
+    defaultParams: { uuid: 'me' }
+  })
+  
+  //if you need to get some initial data that depends on someother data from redux-store
+  
+  compose(
+    connect(state=>({
+       ord_uuid: state.user.organization  
+    })),
+    prefetchResources({
+        namespace: 'userOrg',
+        endpoint: 'organizations/:ord_uuid'
+    })
+  )
+```
+
+### withInfinityList
+
+Hight orderComponent to work with inifinity lists with filter functionality 
+`prefetchResources(resources, options)`
+#### `resources : String|Object|function` [required]
+same as with prefetchResources but resources could not be an array it should be only a single resource
+#### `options : Object` 
+with options u can specify some configuration such as 
+- `parseQueryParams: Function` => function that get String from location.search and transform this to Object. By defaylt uses parseQueryParams from `ds-api`
+- `defaultParams: Object` => object with whatever default params that should be passed to initial GET request
+- `cleanOnUnmount: Boolean` => whenever u need to clean data on unmount
+- `prefetch: Boolean [default true]` => whenever u need to fetch data on mount
+### usage
+```
+    function infinityList ({
+        cars,
+        loadNext,
+        onRefresh,
+        isRefreshing,
+        onSearch
+    }) {
+        return (
+            <>
+                <TextInput onChangeText={(value)=>onSearch({search: value})}/>
+                <FlatList
+                    data={get(cars, 'data.results', [])}
+                    onEndReached={loadNext}
+                    onRefresh={onRefresh}
+                    refreshing={isRefreshing}
+                    renderItem={YourItem}
+                    keyExtractor={yourKeyExtractor}
+                />
+            </>
+        )
+    }
+    
+    export default withInfinityList('users')
+```
+
+### withReduxForm
+
+that will connect Redux-form and resource with prefetch functionality, adding prefetched data as initialValues and sending POST/PUT request based on if it is new object or updating existing one
+`withReduxForm(form, resources, options)`
+#### `form : Object` [required] 
+redux-form configs
+#### `resources : String|Object|function` [required]
+same as with prefetchResources but resources could not be an array it should be only a single resource
+#### `options : Object` 
+with options u can specify some configuration such as 
+- `parseQueryParams: Function` => function that get String from location.search and transform this to Object. By defaylt uses parseQueryParams from `ds-api`
+- `defaultParams: Object` => object with whatever default params that should be passed to initial GET request
+- `cleanOnUnmount: Boolean` => whenever u need to clean data on unmount
+- `prefetch: Boolean [default true]` => whenever u need to fetch data on mount
+### usage
+```
+withReduxForm(
+    form: {
+      form: 'userForm',
+    },
+    resource: {
+      namespace: 'user',
+      endpoint: 'users/:uuid', //uuid will be retrived from navigation params
+    },
+    {
+        prefetch: true,
+        cleanOnUnmount: true
+    }
+)
+```
