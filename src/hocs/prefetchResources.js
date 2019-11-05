@@ -50,7 +50,7 @@ export function prefetch(resources, configs) {
         const queryData = get(this.props, 'location.search') ? configs.parseQueryParams(get(this.props, 'location.search')) : {}
         const navigationParams = get(this.props, 'match.params', get(this.props, 'navigation.state.params', {}))
         this.fetchList = this.getResources().map(({ resource, config }) => {
-          const urlConfigs = pathToRegexp(config.endpoint || '').keys.map(({ name }) => name) || {}
+          const urlConfigs = (pathToRegexp(config.endpoint || '').keys || []).map(({ name }) => name) || {}
           const apiDatafromProps = pick(this.props, [...urlConfigs, ...get(config, 'queries', [])])
           const request = resource.customRequest || resource.fetch
           return request({
