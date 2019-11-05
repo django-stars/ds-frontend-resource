@@ -75,7 +75,7 @@ function withList(key, resource, configs) {
       }
 
       getapiDatafromProps() {
-        const urlConfigs = pathToRegexp(resource.endpoint || '').keys.map(({ name }) => name) || {}
+        const urlConfigs = (pathToRegexp(resource.endpoint || '').keys || []).map(({ name }) => name) || {}
         return pick(this.props, [...urlConfigs, ...get(resource, 'queries', [])]) || {}
       }
 
