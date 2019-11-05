@@ -1,4 +1,4 @@
-import { reduxForm } from 'redux-form'
+import { reduxForm, SubmissionError } from 'redux-form'
 import { connect } from 'react-redux'
 import { compose } from 'redux'
 import connectResources from '../resources'
@@ -8,7 +8,7 @@ import isEmpty from 'lodash/isEmpty'
 import { QueryParams } from 'ds-api'
 
 const QS = new QueryParams()
-
+const nonFieldErrorKeys = ['non_field_errors', 'nonFieldErrors', 'detail']
 
 const defaultConfigs = {
   prefetch: true,
@@ -40,7 +40,20 @@ export default function(form, resource, configs = defaultConfigs) {
         return { onSubmit: get(props, `${key}.customRequest`) }
       }
       return {
-        onSubmit: (data) => handleSubmit(data, get(props, key), { forceUpdates: true }),
+        onSubmit: (data) => handleSubmit(data, get(props, key), { forceUpdates: true })
+          .catch(error => {
+            const errors = Object.entries(error || {}).reduce(function(res, [key, value]) {
+              let eKey = key
+              if(nonFieldErrorKeys.includes(key)) {
+                eKey = '_error'
+              }
+              return {
+                ...res,
+                [eKey]: Array.isArray(value) ? value[0] : value,
+              }
+            }, {})
+            throw new SubmissionError(errors)
+          }),
       }
     }),
     reduxForm({ ...form }),
