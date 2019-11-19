@@ -99,7 +99,9 @@ function mapStateToProps(resources) {
 function getMetaFromResource(resource) {
   if(typeof resource === 'string') {
     return {
-      endpoint: resource, namespace: resource, reducer: 'object',
+      endpoint: resource,
+      namespace: resource.split('/').shift(),
+      reducer: 'object',
     }
   }
   return {
