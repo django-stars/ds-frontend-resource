@@ -140,7 +140,7 @@ function makeRequest(httpRequest) {
         }, meta))
       }
       const controller = new AbortController()
-      const wrappedPromise = httpRequest(API, payload, { signal: controller.signal, ...meta, endpoint })
+      const wrappedPromise = httpRequest(API, payload, { signal: controller.signal, ...meta, endpoint }, { dispatch, getState })
         .then(response => {
           dispatch(setResourceData({
             [type === 'OPTIONS' ? 'options' : 'data']: response,
