@@ -5,19 +5,17 @@ import connectResources from '../resources'
 import prefetchResource from './prefetchResources'
 import get from 'lodash/get'
 import isEmpty from 'lodash/isEmpty'
-import { QueryParams } from 'ds-api'
 
-const QS = new QueryParams()
 const nonFieldErrorKeys = ['non_field_errors', 'nonFieldErrors', 'detail']
 
 const defaultConfigs = {
   prefetch: true,
   cleanOnUnmount: false,
-  parseQueryParams: QS.parseQueryParams,
   defaultParams: {},
 }
 
 export default function(form, resource, configs = defaultConfigs) {
+  console.warn('Redux-form will be deprecated in nearest feature. Please use final-form HOC')
   if(isEmpty(form)) {
     throw new Error('form configs are required')
   }

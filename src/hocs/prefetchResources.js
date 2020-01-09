@@ -1,27 +1,30 @@
+import { Component } from 'react'
 import { compose } from 'redux'
 import pathToRegexp from 'path-to-regexp'
-import { Component } from 'react'
 import connectResources from '../resources'
 import get from 'lodash/get'
 import pick from 'lodash/pick'
-import { QueryParams } from 'ds-api'
+import has from 'lodash/has'
+import noop from 'lodash/noop'
+import { mergeConfigs, makePromiseSubscription, Fragment, getNameSpace } from '../utils'
 
-const QS = new QueryParams()
 
 const defaultConfigs = {
-  cleanOnUnmount: false,
-  parseQueryParams: QS.parseQueryParams,
+  destroyOnUnmount: true,
+  refresh: true,
   defaultParams: {},
+  Loader: Fragment,
 }
 
-export default function prefetchResources(resources, configs = defaultConfigs) {
+
+export default function prefetchResources(resources, configs) {
   const _resources = Array.isArray(resources) ? resources : [resources]
   const resourcesList = _resources.filter(item => typeof item !== 'function')
   const customResources = _resources.filter(item => typeof item === 'function')
   return compose(
     ...customResources,
     connectResources(resourcesList),
-    prefetch(_resources, configs)
+    prefetch(_resources, mergeConfigs(defaultConfigs, configs))
   )
 }
 
@@ -32,13 +35,18 @@ export function prefetch(resources, configs) {
       constructor(props) {
         super(props)
         this.getResources = this.getResources.bind(this)
+        const initialLoading = configs.refresh || this.getResources()
+          .findIndex(({ resource }) => !has(resource, 'data') && !has(resource, 'errors')) !== -1
+        this.state = { initialLoading }
       }
 
       getResources() {
         return resources.map(resource => {
           if(typeof resource === 'string') {
+            resource = getNameSpace(resource)
             return { resource: this.props[resource], config: { endpoint: resource } }
           }
+          resource.namespace = getNameSpace(resource.namespace)
           if(typeof resource === 'function') {
             if(typeof get(this.props, `[${resource.namespace}].customRequest`) !== 'function') { return }
           }
@@ -47,22 +55,24 @@ export function prefetch(resources, configs) {
       }
 
       componentDidMount() {
-        const queryData = get(this.props, 'location.search') ? configs.parseQueryParams(get(this.props, 'location.search')) : {}
-        const navigationParams = get(this.props, 'match.params', get(this.props, 'navigation.state.params', {}))
+        if(!this.state.initialLoading) { return }
         this.fetchList = this.getResources().map(({ resource, config }) => {
-          const urlConfigs = (pathToRegexp(config.endpoint || '').keys || []).map(({ name }) => name) || {}
+          const urlConfigs = (pathToRegexp(config.endpoint || '').keys || []).map(({ name }) => name) || []
           const apiDatafromProps = pick(this.props, [...urlConfigs, ...get(config, 'queries', [])])
           const request = resource.customRequest || resource.fetch
           return request({
-            ...queryData,
-            ...navigationParams,
-            ...apiDatafromProps,
             ...get(configs, 'defaultParams', {}),
+            ...apiDatafromProps,
           })
         })
+        this.subscription = makePromiseSubscription(this.fetchList)
+        this.subscription
+          .then(() => this.setState({ initialLoading: false }))
+          .catch(noop)
       }
 
       componentWillUnmount() {
+        this.subscription && this.subscription.cancel && this.subscription.cancel()
         if(Array.isArray(this.fetchList)) {
           this.fetchList.forEach(item => {
             if(item && item.cancel && typeof item.cancel === 'function') {
@@ -70,10 +80,18 @@ export function prefetch(resources, configs) {
             }
           })
         }
+        if(configs.destroyOnUnmount) {
+          this.getResources().forEach(({ resource }) => resource.clear())
+        }
       }
 
       render() {
-        return (<ChildComponent {...this.props}/>)
+        const { Loader } = configs
+        return (
+          <Loader isLoading={this.state.initialLoading}>
+            <ChildComponent {...this.props} {...this.state}/>
+          </Loader>
+        )
       }
     }
   }

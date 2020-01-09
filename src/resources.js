@@ -7,6 +7,8 @@ import omit from 'lodash/omit'
 import pick from 'lodash/pick'
 import get from 'lodash/get'
 import has from 'lodash/has'
+import isEmpty from 'lodash/isEmpty'
+import { getNameSpace } from './utils'
 
 export const REQUEST = '@resource/request'
 export const SET_DATA = '@resource/set-data'
@@ -14,7 +16,7 @@ const SET_ERRORS = '@resource/set-errors'
 const SET_LOADING = '@resource/set-loading'
 const SET_FILTERS = '@resource/set-filters'
 const SET_RESOURCE_DATA = '@resource/set-resourceData'
-
+const CLEAR_RESOURCE = '@resource/clear'
 
 export const ResourceType = PropTypes.shape({
   create: PropTypes.func,
@@ -27,6 +29,7 @@ export const ResourceType = PropTypes.shape({
   setErrors: PropTypes.func,
   setLoading: PropTypes.func,
   setFilters: PropTypes.func,
+  clear: PropTypes.func,
   isLoading: PropTypes.bool,
   options: PropTypes.object,
   filters: PropTypes.object,
@@ -34,6 +37,12 @@ export const ResourceType = PropTypes.shape({
   data: PropTypes.object,
 })
 
+export function clear(meta) {
+  return {
+    type: CLEAR_RESOURCE,
+    meta,
+  }
+}
 
 export function setData(payload, meta) {
   return {
@@ -99,14 +108,16 @@ function mapStateToProps(resources) {
 function getMetaFromResource(resource) {
   if(typeof resource === 'string') {
     return {
-      endpoint: resource, namespace: resource, reducer: 'object',
+      endpoint: resource,
+      namespace: getNameSpace(resource),
+      reducer: 'object',
     }
   }
   return {
     reducer: 'object',
     ...resource,
     endpoint: resource.endpoint || resource.namespace,
-    namespace: resource.namespace,
+    namespace: getNameSpace(resource.namespace),
   }
 }
 
@@ -138,9 +149,13 @@ function makeRequest(httpRequest) {
           errors: {},
           filters: pick(payload, queries || []),
         }, meta))
+      } else if(!isEmpty(queries)) {
+        dispatch(setResourceData({
+          filters: pick(payload, queries || []),
+        }, meta))
       }
       const controller = new AbortController()
-      const wrappedPromise = httpRequest(API, payload, { signal: controller.signal, ...meta, endpoint })
+      const wrappedPromise = httpRequest(API, payload, { signal: controller.signal, ...meta, endpoint }, { dispatch, getState })
         .then(response => {
           dispatch(setResourceData({
             [type === 'OPTIONS' ? 'options' : 'data']: response,
@@ -172,6 +187,10 @@ function makeSimpleAction(meta, action, dispatch) {
   return (payload, actionmeta = {}) => dispatch(action(payload, { ...meta, ...actionmeta }))
 }
 
+function makeClearAction(meta = {}, dispatch) {
+  return (actionmeta = {}) => dispatch(clear({ ...meta, ...actionmeta }))
+}
+
 function makeResourceActions(resource, dispatch) {
   const meta = getMetaFromResource(resource)
   const actions = {
@@ -184,6 +203,7 @@ function makeResourceActions(resource, dispatch) {
     setData: makeSimpleAction(meta, setData, dispatch),
     setErrors: makeSimpleAction(meta, setErrors, dispatch),
     setLoading: makeSimpleAction(meta, setLoading, dispatch),
+    clear: makeClearAction(meta, dispatch),
   }
   if(has(resource, 'queries')) {
     actions.setFilters = makeSimpleAction(meta, setFilters, dispatch)
@@ -279,6 +299,9 @@ const defaultReducers = {
 
 
 export function resourcesReducer(state = {}, action) {
+  if(action.type === CLEAR_RESOURCE) {
+    return omit(state, action.meta.namespace)
+  }
   if(action.type.startsWith('@resource/')) {
     return {
       ...state,
@@ -297,9 +320,12 @@ export function customResource(customFetch) {
     if(typeof resource === 'string') {
       resource = {
         endpoint: resource,
-        namespace: resource,
+        namespace: getNameSpace(resource),
         reducer: 'object',
       }
+    }
+    if(!resource.endpoint) {
+      resource.endpoint = resource.namespace
     }
     const { namespace, endpoint } = resource
     const customeResourceConnectHOC = compose(

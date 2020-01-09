@@ -9,20 +9,15 @@
     "prepublishOnly": "yarn clean && yarn build"
   },
   "peerDependencies": {
+    "final-form": "^4.18.6",
     "lodash": "^4.17.5",
     "path-to-regexp": "^3.0.0",
     "react": "^16.10.2",
+    "react-final-form": "^6.3.3",
     "react-redux": "^7.1.0",
     "redux": "^3.7.2",
-    "rxjs": "^5.5.7"
+    "redux-form": "^8.2.6"
   },
-  "files": [
-    "LICENSE",
-    "README.md",
-    "resources.js",
-    "thunk.js",
-    "package.json"
-  ],
   "keywords": [
     "react",
     "redux",
@@ -33,8 +28,7 @@
   "contributors": [
     "Alexander Gulchenko <aleksandr.gulchenko@gmail.com>"
   ],
-  "bugs": "https://github.com/django-stars/frontend-skeleton-contrib/issues",
-  "license": "MIT",
+  "bugs": "https://github.com/django-stars/ds-frontend-resource/issues",
   "devDependencies": {
     "@babel/cli": "^7.5.0",
     "@babel/core": "^7.5.4",
@@ -66,5 +60,10 @@
     "react-redux": "^7.1.0",
     "redux": "^3.7.2",
     "rxjs": "^5.5.7"
+  },
+  "dependencies": {
+    "final-form": "^4.18.6",
+    "react-final-form": "^6.3.3",
+    "redux-form": "^8.2.6"
   }
 }
