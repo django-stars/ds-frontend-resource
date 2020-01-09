@@ -3,22 +3,25 @@ import { compose } from 'redux'
 import pathToRegexp from 'path-to-regexp'
 import connectResources from '../resources'
 import get from 'lodash/get'
+import has from 'lodash/has'
 import pick from 'lodash/pick'
+import noop from 'lodash/noop'
 import debounce from 'lodash/debounce'
-import { QueryParams } from 'ds-api'
+import { Fragment, mergeConfigs, makePromiseSubscription, getNameSpace } from '../utils'
 
-const QS = new QueryParams()
 
 const defaultConfigs = {
   prefetch: true,
-  cleanOnUnmount: false,
-  parseQueryParams: QS.parseQueryParams,
+  destroyOnUnmount: true,
+  refresh: true,
+  Loader: Fragment,
   defaultParams: {
     limit: 20,
   },
 }
 
-export default function withInfinityList(resource, configs = defaultConfigs) {
+export default function withInfinityList(resources, configs) {
+  let resource = resources
   if(Array.isArray(resource)) {
     throw new Error('withFormResource HOC could acceps only 1 resource')
   }
@@ -36,9 +39,12 @@ export default function withInfinityList(resource, configs = defaultConfigs) {
       queries: ['offset', 'limit'],
     }
   }
+  if(!resource.queries) {
+    resource.queries = ['offset', 'limit']
+  }
   return compose(
     typeof resource === 'function' ? resource : connectResources(resource),
-    withList(key, resource, configs),
+    withList(getNameSpace(key), resource, mergeConfigs(defaultConfigs, configs)),
   )
 }
 
@@ -53,25 +59,29 @@ function withList(key, resource, configs) {
         this.refresh = this.refresh.bind(this)
         this.getapiDatafromProps = this.getapiDatafromProps.bind(this)
         this.onSearch = debounce(this.handleSearch.bind(this), 300)
+
+        const initialLoading = configs.refresh || (!has(get(props, `[${key}].data`)) && !has(get(props, `[${key}].errors`)))
+        this.state = {
+          initialLoading,
+          isRefreshing: false,
+        }
       }
 
       componentDidMount() {
-        if(!configs.prefetch) {
-          return
-        }
-        const queryData = get(this.props, 'location.search') ? configs.parseQueryParams(get(this.props, 'location.search')) : {}
-        const navigationParams = get(this.props, 'match.params', get(this.props, 'navigation.state.params', {}))
-        const defaultParams = get(configs, 'defaultParams', {})
+        if(!configs.prefetch) { return }
+        if(!this.state.initialLoading) { return }
         const request = this.getRequestFunction()
         if(!request) { return }
 
         this.request = request({
-          ...queryData, // params from url
-          ...navigationParams, // navigation params
-          ...defaultParams, // default static params like mobile=true, limit=20
-          ...this.getapiDatafromProps(), // some value from store that could be user from connect e.g. organozationID
+          ...get(configs, 'defaultParams', {}),
+          ...this.getapiDatafromProps(),
           offset: 0,
-        }, { reducer: 'replace' })
+        }, { reducer: 'replace', forceUpdates: true })
+        this.subscription = makePromiseSubscription([this.request])
+        this.subscription
+          .then(() => this.setState({ initialLoading: false }))
+          .catch(noop)
       }
 
       getapiDatafromProps() {
@@ -90,12 +100,15 @@ function withList(key, resource, configs) {
         }
       }
 
-      handleSearch(search = {}) {
+      handleSearch(search = {}, apiParams) {
         this.cancellRequest()
         const request = this.getRequestFunction()
         if(!request) { return }
-        const defaultParams = get(configs, 'defaultParams', {})
-        this.request = request({ ...defaultParams, ...this.getapiDatafromProps(), ...search, offset: 0 }, { reducer: 'replace' })
+        this.request = request({
+          ...get(this.props[key], 'filters', {}),
+          ...search,
+          offset: 0,
+        }, { reducer: 'replace', ...(apiParams || {}) })
         return this.request
       }
 
@@ -112,27 +125,34 @@ function withList(key, resource, configs) {
         return this.request
       }
 
-      refresh() {
-        this.isRefreshing = true
-        return this.handleSearch({})
-          .finally(() => { this.isRefreshing = false })
+      refresh(filters = {}, apiParams = { forceUpdates: true }) {
+        this.setState({ isRefreshing: true })
+        this.request = this.handleSearch(filters, apiParams)
+        this.subscription = makePromiseSubscription([this.request])
+        this.subscription
+          .then(() => this.setState({ isRefreshing: false }))
+          .catch(noop)
+        return this.request
       }
 
       componentWillUnmount() {
+        this.subscription && this.subscription.cancel && this.subscription.cancel()
         this.cancellRequest()
-        if(!configs.cleanOnUnmount) { return }
-        this.props[key].setData({}, { reducer: 'replace' })
+        if(configs.destroyOnUnmount) { this.props[key].clear() }
       }
 
       render() {
+        const { Loader } = configs
         return (
-          <ChildComponent
-            {...this.props}
-            onSearch={this.onSearch}
-            loadNext={this.loadNext}
-            onRefresh={this.refresh}
-            isRefreshing={this.isRefreshing && get(this.props[key], 'isLoading')}
-          />
+          <Loader isLoading={this.state.initialLoading}>
+            <ChildComponent
+              {...this.props}
+              {...this.state}
+              onSearch={this.onSearch}
+              loadNext={this.loadNext}
+              onRefresh={this.refresh}
+            />
+          </Loader>
         )
       }
     }
