@@ -1,3 +1,4 @@
+import { Component } from 'react'
 import { Form } from 'react-final-form'
 import { FORM_ERROR } from 'final-form'
 import { parse } from 'path-to-regexp'
@@ -19,7 +20,7 @@ export default function withFinalForm({
     throw new Error('OnSubmit is required')
   }
   let getfields = function() { return [] }
-  return function HOC(Component) {
+  return function HOC(ChildComponent) {
     return class FinalFormHOC extends Component {
       constructor(props) {
         super(props)
@@ -91,7 +92,7 @@ export default function withFinalForm({
             render={({ handleSubmit, form, submitting, ...rest }) => {
               getfields = form.getRegisteredFields
               return (
-                <Component
+                <ChildComponent
                   {...this.props}
                   handleSubmit={handleSubmit}
                   valid={isFormValid(rest) }
