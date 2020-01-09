@@ -1,6 +1,6 @@
 import { Component } from 'react'
 import { compose } from 'redux'
-import { pathToRegexp } from 'path-to-regexp'
+import { parse } from 'path-to-regexp'
 import connectResources from '../resources'
 import get from 'lodash/get'
 import has from 'lodash/has'
@@ -88,7 +88,9 @@ function withList(key, resource, configs) {
       }
 
       getapiDatafromProps() {
-        const urlConfigs = (pathToRegexp(resource.endpoint || '').keys || []).map(({ name }) => name) || {}
+        const urlConfigs = (parse(resource.endpoint || '') || [])
+          .filter(item => typeof item !== 'string')
+          .map(({ name }) => name) || {}
         return pick(this.props, [...urlConfigs, ...get(resource, 'queries', [])]) || {}
       }
 
