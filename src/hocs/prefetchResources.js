@@ -1,6 +1,6 @@
 import { Component } from 'react'
 import { compose } from 'redux'
-import pathToRegexp from 'path-to-regexp'
+import { pathToRegexp } from 'path-to-regexp'
 import connectResources from '../resources'
 import get from 'lodash/get'
 import pick from 'lodash/pick'

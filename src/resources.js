@@ -1,6 +1,6 @@
 import { compose } from 'redux'
 import { connect } from 'react-redux'
-import pathToRegexp from 'path-to-regexp'
+import { compile } from 'path-to-regexp'
 import PropTypes from 'prop-types'
 
 import omit from 'lodash/omit'
@@ -141,7 +141,7 @@ function makeRequest(httpRequest) {
         forceUpdates,
       } = meta
       if(endpoint.search(/\/:/) > -1) {
-        endpoint = pathToRegexp.compile(endpoint)(payload)
+        endpoint = compile(endpoint)(payload)
       }
       if(!forceUpdates) {
         dispatch(setResourceData({
