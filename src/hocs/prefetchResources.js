@@ -1,6 +1,6 @@
 import { Component } from 'react'
 import { compose } from 'redux'
-import { pathToRegexp } from 'path-to-regexp'
+import { parse } from 'path-to-regexp'
 import connectResources from '../resources'
 import get from 'lodash/get'
 import pick from 'lodash/pick'
@@ -57,7 +57,9 @@ export function prefetch(resources, configs) {
       componentDidMount() {
         if(!this.state.initialLoading) { return }
         this.fetchList = this.getResources().map(({ resource, config }) => {
-          const urlConfigs = (pathToRegexp(config.endpoint || '').keys || []).map(({ name }) => name) || []
+          const urlConfigs = (parse(config.endpoint || '') || [])
+            .filter(item => typeof item !== 'string')
+            .map(({ name }) => name) || []
           const apiDatafromProps = pick(this.props, [...urlConfigs, ...get(config, 'queries', [])])
           const request = resource.customRequest || resource.fetch
           return request({

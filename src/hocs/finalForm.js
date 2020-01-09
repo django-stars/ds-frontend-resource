@@ -1,6 +1,7 @@
+import { Component } from 'react'
 import { Form } from 'react-final-form'
 import { FORM_ERROR } from 'final-form'
-import { pathToRegexp } from 'path-to-regexp'
+import { parse } from 'path-to-regexp'
 import pick from 'lodash/pick'
 import omit from 'lodash/omit'
 import get from 'lodash/get'
@@ -19,7 +20,7 @@ export default function withFinalForm({
     throw new Error('OnSubmit is required')
   }
   let getfields = function() { return [] }
-  return function HOC(Component) {
+  return function HOC(ChildComponent) {
     return class FinalFormHOC extends Component {
       constructor(props) {
         super(props)
@@ -91,7 +92,7 @@ export default function withFinalForm({
             render={({ handleSubmit, form, submitting, ...rest }) => {
               getfields = form.getRegisteredFields
               return (
-                <Component
+                <ChildComponent
                   {...this.props}
                   handleSubmit={handleSubmit}
                   valid={isFormValid(rest) }
@@ -134,7 +135,8 @@ function getIdKey(props, { key, resource, configs } = {}) {
   if(!get(resource, 'endpoint')) {
     return false
   }
-  let idKey = (pathToRegexp(resource.endpoint || '').keys || [])
+  let idKey = (parse(resource.endpoint || '') || [])
+    .filter(item => typeof item !== 'string')
     .filter(({ optional }) => optional)
     .pop()
   if(isEmpty(idKey)) {
