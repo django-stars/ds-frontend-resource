@@ -1,4 +1,4 @@
-import { connect } from 'redux'
+import { connect } from 'react-redux'
 import get from 'lodash/get'
 import { QueryParams } from 'ds-api'
 const QS = new QueryParams()
