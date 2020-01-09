@@ -85,8 +85,8 @@ export function setLoading(payload, meta) {
 }
 
 function getNameSpaceFromResource(resource) {
-  if(typeof resource === 'string') { return resource }
-  return resource.namespace
+  if(typeof resource === 'string') { return getNameSpace(resource) }
+  return getNameSpace(resource.namespace)
 }
 
 
