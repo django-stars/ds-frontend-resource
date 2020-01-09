@@ -119,7 +119,9 @@ function withList(key, resource, configs) {
           console.warn('InfinitiList: can not load next page while processing previous request')
           return
         }
-        const { limit, offset } = get(this.props[key], 'filters', {})
+        let { limit, offset } = get(this.props[key], 'filters', {})
+        limit = parseInt(limit, 10)
+        offset = parseInt(offset, 10)
         if((offset + limit) >= get(this.props[key], 'data.count', 0)) { return }
         this.request = request({ ...get(this.props[key], 'filters', {}), offset: offset + limit }, { reducer: 'paginationList' })
         return this.request
