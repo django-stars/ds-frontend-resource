@@ -39,6 +39,10 @@ export default function withInfinityList(resources, configs) {
       queries: ['offset', 'limit'],
     }
   }
+  if(!resource.endpoint) {
+    resource.endpoint = resource.namespace
+  }
+  resource.namespace = getNameSpace(resource.namespace)
   if(!resource.queries) {
     resource.queries = ['offset', 'limit']
   }
