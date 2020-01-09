@@ -1,6 +1,6 @@
 import { Form } from 'react-final-form'
 import { FORM_ERROR } from 'final-form'
-import pathToRegexp from 'path-to-regexp'
+import { pathToRegexp } from 'path-to-regexp'
 import pick from 'lodash/pick'
 import omit from 'lodash/omit'
 import get from 'lodash/get'
