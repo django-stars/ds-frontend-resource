@@ -221,7 +221,7 @@ function mapDispatchToProps(resources, dispatch) {
   }), {})
 }
 
-export default function connectResouces(resource) {
+export default function connectResources(resource) {
   return compose(
     connect(null, dispatch => mapDispatchToProps(resource, dispatch)),
     connect(mapStateToProps(resource)),
