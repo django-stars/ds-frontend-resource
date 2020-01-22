@@ -1,4 +1,4 @@
-import connectResouces, {
+import connectResources, {
   resourcesReducer,
   ResourceType,
   customResource,
@@ -7,7 +7,7 @@ export * from './src/hocs'
 
 
 export {
-  connectResouces,
+  connectResources,
   resourcesReducer,
   ResourceType,
   customResource,
