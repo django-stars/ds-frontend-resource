@@ -8,12 +8,6 @@
     "lint": "eslint src/ --ext .jsx,.js",
     "prepublishOnly": "yarn clean && yarn build"
   },
-  "peerDependencies": {
-    "lodash": "^4.17.5",
-    "react": "^16.10.2",
-    "react-redux": "^7.1.0",
-    "redux": "^3.7.2"
-  },
   "keywords": [
     "react",
     "redux",

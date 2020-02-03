@@ -1,7 +1,6 @@
 import { compose } from 'redux'
 import { connect } from 'react-redux'
 import { compile } from 'path-to-regexp'
-import PropTypes from 'prop-types'
 
 import omit from 'lodash/omit'
 import pick from 'lodash/pick'
@@ -9,6 +8,7 @@ import get from 'lodash/get'
 import has from 'lodash/has'
 import isEmpty from 'lodash/isEmpty'
 import { getNameSpace } from './utils'
+
 
 export const REQUEST = '@resource/request'
 export const SET_DATA = '@resource/set-data'
@@ -18,24 +18,6 @@ const SET_FILTERS = '@resource/set-filters'
 const SET_RESOURCE_DATA = '@resource/set-resourceData'
 const CLEAR_RESOURCE = '@resource/clear'
 
-export const ResourceType = PropTypes.shape({
-  create: PropTypes.func,
-  fetch: PropTypes.func,
-  fetchOptions: PropTypes.func,
-  remove: PropTypes.func,
-  replace: PropTypes.func,
-  update: PropTypes.func,
-  setData: PropTypes.func,
-  setErrors: PropTypes.func,
-  setLoading: PropTypes.func,
-  setFilters: PropTypes.func,
-  clear: PropTypes.func,
-  isLoading: PropTypes.bool,
-  options: PropTypes.object,
-  filters: PropTypes.object,
-  errors: PropTypes.object,
-  data: PropTypes.object,
-})
 
 export function clear(meta) {
   return {
@@ -143,6 +125,7 @@ function makeRequest(httpRequest) {
       if(endpoint.search(/\/:/) > -1) {
         endpoint = compile(endpoint)(payload)
       }
+
       if(!forceUpdates) {
         dispatch(setResourceData({
           isLoading: true,
@@ -191,7 +174,7 @@ function makeClearAction(meta = {}, dispatch) {
   return (actionmeta = {}) => dispatch(clear({ ...meta, ...actionmeta }))
 }
 
-function makeResourceActions(resource, dispatch) {
+export function makeResourceActions(resource, dispatch) {
   const meta = getMetaFromResource(resource)
   const actions = {
     create: makeRequestAction('POST', meta, dispatch),
