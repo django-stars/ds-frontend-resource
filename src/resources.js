@@ -125,14 +125,13 @@ function makeRequest(httpRequest) {
       if(endpoint.search(/\/:/) > -1) {
         endpoint = compile(endpoint)(payload)
       }
-
       if(!forceUpdates) {
         dispatch(setResourceData({
           isLoading: true,
           errors: {},
-          filters: pick(payload, queries || []),
         }, meta))
-      } else if(!isEmpty(queries)) {
+      }
+      if(!isEmpty(queries) && type === 'GET') {
         dispatch(setResourceData({
           filters: pick(payload, queries || []),
         }, meta))
