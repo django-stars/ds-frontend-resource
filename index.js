@@ -1,5 +1,5 @@
-import ResourceType from './ResourceType'
-import useResources from './useResources'
+import ResourceType from './src/ResourceType'
+import useResources from './src/useResources'
 
 import connectResources, {
   resourcesReducer,
