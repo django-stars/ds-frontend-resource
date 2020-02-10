@@ -2,7 +2,7 @@ import { useMemo, useCallback } from 'react'
 import { createSelector } from 'reselect'
 import { useSelector, useDispatch } from 'react-redux'
 import get from 'lodash/get'
-import { makeResourceActions } from '/resources'
+import { makeResourceActions } from './resources'
 
 
 const resourceSelector = createSelector(
