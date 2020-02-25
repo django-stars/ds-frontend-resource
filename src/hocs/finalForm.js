@@ -88,7 +88,7 @@ export default function withFinalForm({
             {...configs}
             onSubmit={this.handleSubmit}
             validate={this.handleValidate}
-            initialValues={this.initialValues}
+            initialValues={this.initialValues()}
             render={({ handleSubmit, form, submitting, ...rest }) => {
               getfields = form.getRegisteredFields
               return (
