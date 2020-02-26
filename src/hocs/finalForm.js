@@ -7,17 +7,6 @@ import omit from 'lodash/omit'
 import get from 'lodash/get'
 import isEmpty from 'lodash/isEmpty'
 
-class RegisteredFieldsRenderer extends Component {
-  componentDidUpdate() {
-    if(isEmpty(this.props.stateFields)) {
-      this.props.updateRegisteredFields(this.props.formFields)
-    }
-  }
-
-  render() {
-    return this.props.children
-  }
-}
 
 export default function withFinalForm({
   validate = () => {},
@@ -30,17 +19,14 @@ export default function withFinalForm({
   if(!key && !configs.onSubmit) {
     throw new Error('OnSubmit is required')
   }
+  let getfields = function() { return [] }
   return function HOC(ChildComponent) {
     return class FinalFormHOC extends Component {
       constructor(props) {
         super(props)
         this.handleSubmit = this.handleSubmit.bind(this)
         this.handleValidate = this.handleValidate.bind(this)
-        this.updateRegisteredFields = this.updateRegisteredFields.bind(this)
         this.initialValues = this.getInitialValues(props)
-        this.state = {
-          registeredFields: [],
-        }
       }
 
       getInitialValues(props) {
@@ -91,37 +77,27 @@ export default function withFinalForm({
       handleValidate(values) {
         const validationErrors = validate(values, this.props)
         if(typeof validationErrors === 'object') {
-          return pick(validationErrors, this.state.registeredFields)
+          return pick(validationErrors, getfields())
         }
         return validationErrors
-      }
-
-      updateRegisteredFields(fields) {
-        this.setState({ registeredFields: fields })
       }
 
       render() {
         return (
           <Form
             {...configs}
-            key={this.state.registeredFields}
             onSubmit={this.handleSubmit}
             validate={this.handleValidate}
             initialValues={this.initialValues}
             render={({ handleSubmit, form, submitting, ...rest }) => {
+              getfields = form.getRegisteredFields
               return (
-                <RegisteredFieldsRenderer
-                  updateRegisteredFields={this.updateRegisteredFields}
-                  formFields={form.getRegisteredFields()}
-                  stateFields={this.state.registeredFields}
-                >
-                  <ChildComponent
-                    {...this.props}
-                    handleSubmit={handleSubmit}
-                    valid={isFormValid(rest) }
-                    submitting={submitting}
-                  />
-                </RegisteredFieldsRenderer>
+                <ChildComponent
+                  {...this.props}
+                  handleSubmit={handleSubmit}
+                  valid={isFormValid(rest) }
+                  submitting={submitting}
+                />
               )
             }}
           />
@@ -139,6 +115,9 @@ function getData(values, props, form, valuesInteceptor, registeredFields) {
 }
 
 function isFormValid(form = {}) {
+  if(!form.dirty) {
+    return false
+  }
   if(form.hasValidationErrors) {
     return false
   }
